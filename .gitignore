@@ -1,0 +1,23 @@
+# dependensi & hasil build
+node_modules/
+.next/
+.turbo/
+dist/
+build/
+
+# rahasia & konfigurasi lokal
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# log & artefak sementara
+*.log
+npm-debug.log*
+downloads/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

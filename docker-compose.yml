@@ -1,0 +1,135 @@
+# Nobar King Akbar Anime — stack produksi (self-hosted)
+#
+# Menjalankan seluruh layanan: PostgreSQL, sumber konten (wajik-anime-api),
+# mesin resolver embed (resolver-api), backend API + Socket.IO, frontend Next.js,
+# dan gateway nginx.
+#
+# Rahasia dibaca dari berkas `.env` di folder ini (lihat deploy/.env.production.example).
+# Jalankan:  docker compose up -d --build
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nobar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nobar_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-nobar_king}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nobar} -d ${POSTGRES_DB:-nobar_king}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  # Sumber konten: wajik-anime-api (otakudesu = sub Indo).
+  # Halaman otakudesu dilindungi Cloudflare → diambil lewat Chromium hangat
+  # (lihat wajik-anime-api/PATCHES.md).
+  wajik-anime-api:
+    build: ./wajik-anime-api
+    environment:
+      NODE_ENV: production
+      PORT: 4200
+    expose:
+      - "4200"
+    restart: unless-stopped
+
+  # Mesin resolver embed (vendored anime1v-api, hanya /resolve):
+  # mengubah embed player (desustream, vidhide, …) menjadi URL media langsung.
+  resolver-api:
+    build: ./anime1v-api
+    environment:
+      NODE_ENV: production
+      PORT: 4100
+      API_KEY: ${RESOLVER_API_KEY:-nobar-internal-dev-key}
+    expose:
+      - "4100"
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgres://${POSTGRES_USER:-nobar}:${POSTGRES_PASSWORD:-nobar_dev_password}@postgres:5432/${POSTGRES_DB:-nobar_king}
+      # Origin publik yang diizinkan (domain/URL yang dipakai pengunjung)
+      FRONTEND_URL: ${PUBLIC_URL:-http://localhost:3000}
+      CORS_ORIGINS: ${PUBLIC_URL:-http://localhost:3000}
+      SESSION_COOKIE_NAME: nka_session
+      SESSION_TTL_DAYS: "30"
+      WAJIK_API_URL: http://wajik-anime-api:4200
+      WAJIK_TIMEOUT_MS: "60000"
+      WAJIK_CACHE_TTL: "300"
+      RESOLVER_API_URL: http://resolver-api:4100/api/v1/anime
+      RESOLVER_API_KEY: ${RESOLVER_API_KEY:-nobar-internal-dev-key}
+      RESOLVER_TIMEOUT_MS: "120000"
+      STREAM_CACHE_TTL: "600"
+      STREAM_PROXY_SECRET: ${STREAM_PROXY_SECRET:-nobar-local-stream-proxy-secret}
+      ROOM_INACTIVE_CLEANUP_HOURS: "12"
+      MAX_ROOM_PARTICIPANTS: "50"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      wajik-anime-api:
+        condition: service_started
+      resolver-api:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    expose:
+      - "4000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        INTERNAL_API_URL: http://backend:4000
+    environment:
+      NODE_ENV: production
+      INTERNAL_API_URL: http://backend:4000
+    depends_on:
+      backend:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    expose:
+      - "3001"
+    restart: unless-stopped
+
+  gateway:
+    image: nginx:1.27-alpine
+    ports:
+      # GATEWAY_PORT=80 di server produksi; default 3000 untuk lokal.
+      - "${GATEWAY_PORT:-3000}:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  pgdata:
