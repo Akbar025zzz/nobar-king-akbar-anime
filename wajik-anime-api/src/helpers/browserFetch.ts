@@ -27,6 +27,29 @@ const CHALLENGE_RE = /just a moment|attention required|checking your browser|cf-
 let browserPromise: Promise<Browser> | null = null;
 const pagePromises = new Map<string, Promise<Page>>();
 
+/* Idle shutdown: Chromium is the heaviest part of this service, so it is closed
+ * after BROWSER_IDLE_MS without requests and relaunched on demand. That keeps a
+ * small VPS (2 GB, often shared with other services) comfortable at low traffic. */
+const IDLE_MS = Number(process.env.BROWSER_IDLE_MS ?? 600_000);
+let lastUsedAt = Date.now();
+let idleTimer: NodeJS.Timeout | null = null;
+
+function markUsed(): void {
+  lastUsedAt = Date.now();
+  if (idleTimer || IDLE_MS <= 0) return;
+  idleTimer = setInterval(() => {
+    if (Date.now() - lastUsedAt < IDLE_MS) return;
+    if (idleTimer) {
+      clearInterval(idleTimer);
+      idleTimer = null;
+    }
+    void closeBrowser().then(() => {
+      console.log(`browserFetch: Chromium ditutup setelah ${Math.round(IDLE_MS / 1000)}s idle`);
+    });
+  }, Math.min(30_000, Math.max(5_000, IDLE_MS / 4)));
+  idleTimer.unref?.();
+}
+
 async function getBrowser(): Promise<Browser> {
   if (!browserPromise) {
     browserPromise = puppeteer.launch({ headless: true, args: LAUNCH_ARGS }).catch((error) => {
@@ -102,14 +125,17 @@ async function runFetch(page: Page, url: string, init: FetchInit): Promise<Brows
 
 export async function browserFetch(url: string, init: FetchInit = {}): Promise<BrowserFetchResult> {
   const origin = new URL(url).origin;
+  markUsed();
   const page = await getPage(origin);
   let result = await runFetch(page, url, init);
+  markUsed();
 
   if (result.status >= 400 && CHALLENGE_RE.test(result.text)) {
     // Clearance expired: drop the page, re-clear and retry once.
     pagePromises.delete(origin);
     const freshPage = await getPage(origin);
     result = await runFetch(freshPage, url, init);
+    markUsed();
   }
 
   return result;

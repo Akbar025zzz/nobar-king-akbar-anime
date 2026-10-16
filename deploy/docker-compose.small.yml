@@ -1,0 +1,52 @@
+# Profil hemat untuk server kecil (RAM 2 GB — mis. VPS yang juga menjalankan
+# bot Discord). Dipakai BERSAMA file utama:
+#
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.small.yml up -d --build
+#
+# Yang dilakukan profil ini:
+#   - batas memori per container (agar satu layanan tidak menelan seluruh RAM);
+#   - Chromium ditutup lebih cepat saat idle (5 menit) dan diluncurkan lagi saat perlu;
+#   - resolver hanya mengerjakan 1 halaman sekaligus;
+#   - PostgreSQL disetel untuk RAM kecil;
+#   - kapasitas room diturunkan (beban kecil, peserta sedikit).
+services:
+  postgres:
+    command:
+      [
+        "postgres",
+        "-c",
+        "shared_buffers=96MB",
+        "-c",
+        "max_connections=40",
+        "-c",
+        "work_mem=4MB",
+        "-c",
+        "maintenance_work_mem=48MB",
+      ]
+    mem_limit: 320m
+
+  wajik-anime-api:
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=256"
+      # tutup Chromium setelah 5 menit tanpa permintaan
+      BROWSER_IDLE_MS: "300000"
+    mem_limit: 700m
+
+  resolver-api:
+    environment:
+      MAX_CONCURRENT_PAGES: "1"
+      # tutup Chromium setelah 5 menit tanpa permintaan
+      RESOLVER_BROWSER_IDLE_MS: "300000"
+    mem_limit: 650m
+
+  backend:
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=256"
+      MAX_ROOM_PARTICIPANTS: "15"
+    mem_limit: 300m
+
+  frontend:
+    mem_limit: 400m
+
+  gateway:
+    mem_limit: 48m

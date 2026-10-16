@@ -56,6 +56,17 @@ sanitize / error handling paths are unchanged.
   installs the Debian runtime libraries Chrome needs, exposes **4200** and
   reuses the Chrome download from the build stage.
 
+## 6. `src/helpers/browserFetch.ts` — idle shutdown (hemat RAM)
+
+Chromium adalah bagian terberat dari layanan ini (±0,5 GB saat aktif). Untuk server kecil
+(2 GB, sering dipakai bersama layanan lain seperti bot Discord), browser kini **ditutup
+otomatis setelah `BROWSER_IDLE_MS` tanpa permintaan** (default 10 menit; profil hemat
+memakai 5 menit) dan **diluncurkan kembali saat ada permintaan baru**. Cookie
+`cf_clearance` tidak perlu diawetkan karena tantangan Cloudflare dilewati ulang dengan cepat.
+
+Terver yang sama juga menghemat dari sisi resolver: lihat `anime1v-api/PATCHES.md`
+(`RESOLVER_BROWSER_IDLE_MS`).
+
 ## Verification
 
 Live checks against the running service (port 4200):

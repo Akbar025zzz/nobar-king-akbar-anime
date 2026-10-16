@@ -8,6 +8,26 @@ let activePages = 0;
 const MAX_CONCURRENT_PAGES = Number(process.env.MAX_CONCURRENT_PAGES || 2);
 const queue = [];
 
+// Idle shutdown (hemat RAM di server kecil): Chromium ditutup setelah
+// RESOLVER_BROWSER_IDLE_MS tanpa permintaan, lalu diluncurkan lagi saat dibutuhkan.
+const IDLE_MS = Number(process.env.RESOLVER_BROWSER_IDLE_MS || 600000);
+let lastUsedAt = Date.now();
+let idleTimer = null;
+
+function markUsed() {
+  lastUsedAt = Date.now();
+  if (idleTimer || IDLE_MS <= 0) return;
+  idleTimer = setInterval(async () => {
+    if (Date.now() - lastUsedAt < IDLE_MS) return;
+    clearInterval(idleTimer);
+    idleTimer = null;
+    if (!browserInstance) return;
+    console.log(`browser: menutup Chromium setelah ${Math.round(IDLE_MS / 1000)}s idle`);
+    await cleanup().catch(() => {});
+  }, Math.min(30000, Math.max(5000, IDLE_MS / 4)));
+  if (idleTimer.unref) idleTimer.unref();
+}
+
 function acquireSlot() {
   if (activePages < MAX_CONCURRENT_PAGES) {
     activePages++;
@@ -25,9 +45,11 @@ function releaseSlot() {
     const next = queue.shift();
     next();
   }
+  markUsed();
 }
 
 async function getBrowser() {
+  markUsed();
   if (browserInstance) {
     try {
       await browserInstance.version();
@@ -175,5 +197,6 @@ module.exports = {
   getBrowser,
   fetchPageContent,
   scrapeWithPage,
-  cleanup
+  cleanup,
+  markUsed
 };

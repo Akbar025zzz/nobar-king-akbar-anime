@@ -55,6 +55,17 @@ Puppeteer, menunggu iframe/inline player, mengekstrak URL media (termasuk varian
 dan mengembalikan MP4 langsung (contoh: `https://cdn.odcloud.net/anime/...mp4`, 720p, mendukung
 HTTP Range). Dispatch untuk pola `desustream\.` ditambahkan di `src/utils/resolvers.js`.
 
+## 7. `src/utils/browser.js` — idle shutdown (hemat RAM)
+
+Resolver ini juga memakai Chromium. Untuk server kecil, browser kini ditutup otomatis
+setelah `RESOLVER_BROWSER_IDLE_MS` tanpa permintaan (default 10 menit; profil hemat
+memakai 5 menit) dan diluncurkan lagi saat ada permintaan berikutnya. Halaman tetap
+ditutup setelah setiap tugas seperti sebelumnya, dan `MAX_CONCURRENT_PAGES` bisa
+diturunkan ke `1` di server RAM kecil.
+
+Terukur di sandbox: dua Chromium aktif bersamaan ±1,3 GB RSS; setelah idle keduanya
+tertutup dan pemakaian kembali ke ±0,5 GB untuk seluruh stack.
+
 ## Verification
 
 The patched service is exercised live by the backend (`RESOLVER_API_URL`) whenever an episode is

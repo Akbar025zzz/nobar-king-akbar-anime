@@ -38,11 +38,36 @@ sudo usermod -aG docker $USER && newgrp docker   # agar tanpa sudo
 docker compose version                            # pastikan plugin compose ada
 ```
 
+### 2b. Server kecil (RAM 2 GB) atau dipakai bersama bot Discord
+
+Website ini bisa hidup berdampingan dengan bot Discord di VPS yang sama — keduanya
+proses terpisah, tidak saling ganggu. Untuk RAM 2 GB gunakan **profil hemat**:
+
+```bash
+docker compose -f docker-compose.yml -f deploy/docker-compose.small.yml up -d --build
+```
+
+Profil itu membatasi memori tiap container, menyetel PostgreSQL untuk RAM kecil,
+menutup Chromium setelah 5 menit idle (diluncurkan lagi otomatis saat dibutuhkan),
+dan menurunkan kapasitas room ke 15 peserta. Tambahkan swap agar aman:
+
+```bash
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+Perkiraan pemakaian saat **idle**: PostgreSQL ±100 MB, wajik-anime-api ±90 MB,
+resolver-api ±90 MB, backend ±90 MB, frontend ±150 MB, gateway ±10 MB → **±530 MB**.
+Saat sedang scrape + resolusi (dua Chromium aktif bersamaan) pemakaian naik ke
+**±1,3 GB**, lalu kembali turun sendiri setelah 5 menit tanpa aktivitas.
+Jadi: bot Discord (±200–500 MB) + website ini masih nyaman di 2 GB selama tidak
+banyak pengunjung bersamaan — sesuai pemakaian untuk kalangan sendiri.
+
 ## 3. Ambil kode
 
 ```bash
 sudo mkdir -p /opt && cd /opt
-sudo git clone https://github.com/<akun>/nobar-king-akbar-anime.git
+sudo git clone https://github.com/Akbar025zzz/nobar-king-akbar-anime.git
 sudo chown -R $USER:$USER /opt/nobar-king-akbar-anime
 cd /opt/nobar-king-akbar-anime
 ```
@@ -81,6 +106,9 @@ sudo ufw status
 docker compose up -d --build   # build pertama ±5–10 menit (unduh Chrome for Testing)
 docker compose ps              # semua harus "running"/"healthy"
 ```
+
+> RAM server hanya 2 GB / dipakai bot Discord? pakai profil hemat (lihat bagian 2b):
+> `docker compose -f docker-compose.yml -f deploy/docker-compose.small.yml up -d --build`
 
 Uji cepat:
 
