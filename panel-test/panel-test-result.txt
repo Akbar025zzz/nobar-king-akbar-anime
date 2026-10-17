@@ -1,0 +1,247 @@
+
+=== 1. Lingkungan ===
+waktu     : 2026-10-16T18:20:32.870Z
+node      : v22.13.0 | RAM bebas: 7061 MB
+
+=== 2. Probe HTTP langsung (tanpa browser) ===
+otakudesu.blog          : HTTP 403 | 4551 char | DIBLOKIR
+oploverz.am             : HTTP 200 | 88296 char | judul: oploverz.best | Situs Oploverz yang asli &#8211; oploverz.be
+v1.samehadaku.how       : HTTP 403 | 5695 char | DIBLOKIR
+kuramanime.ing          : HTTP 403 | 5717 char | DIBLOKIR
+cdn.odcloud.net         : HTTP 404 | 27517 char | judul: Not Found
+github.com              : HTTP 200 | 572280 char | judul: GitHub · Change is constant. GitHub keeps you ahead. · GitHu
+files.manuscdn.com      : HTTP 200 | 2 char | judul: (tanpa judul)
+api.cloudflareclient.com: HTTP 404 | 9 char | judul: (tanpa judul)
+
+=== 3. Probe UDP (syarat jalur WARP) ===
+DNS 1.1.1.1:53   : OK (92 byte)
+DNS 8.8.8.8:53   : OK (92 byte)
+
+=== 4. Probe browser (Chromium) — deteksi Cloudflare ===
+otakudesu.blog          : LOLOS | 40922 char | Otaku Desu | Nonton dan Streaming Anime Subtitle I
+oploverz.am             : LOLOS | 89454 char | oploverz.best | Situs Oploverz yang asli – oplover
+v1.samehadaku.how       : LOLOS | 97955 char | Samehadaku – Nonton Streaming Anime Sub Indo
+kuramanime.ing          : TERTAHAN | 29203 char | Just a moment...
+cdn.odcloud.net         : TERTAHAN | 4937 char | Attention Required! | Cloudflare
+github.com              : LOLOS | 573174 char | GitHub · Change is constant. GitHub keeps you ahea
+files.manuscdn.com      : LOLOS | 153 char | 
+api.cloudflareclient.com: LOLOS | 160 char | 
+
+=== 5. Kesimpulan sementara ===
+sumber yang bisa dipakai dari panel ini: otakudesu.blog, oploverz.am, v1.samehadaku.how
+
+=== 6. Uji jalur WARP (proxy SOCKS5) ===
+mengunduh warp-plus…
+unduh     : 7363 KB
+diekstrak : warp-plus, README.md, LICENSE
+menunggu proxy siap (12 detik)…
+[warp] time=2026-10-16T18:22:17.801Z level=INFO msg="using warp endpoints" endpoints="[162.159.192.86:3476 162.159.192.86:3476]"
+time=2026-10-16T18:22:17.801Z level=IN
+[warp] time=2026-10-16T18:22:17.801Z level=INFO msg="failed to load identity" subsystem=warp/account path=/home/ubuntu/.cache/warp-plus/primary error="stat /home/ubunt
+[warp] time=2026-10-16T18:22:17.802Z level=INFO msg="creating new identity" subsystem=warp/account
+[warp] time=2026-10-16T18:22:17.802Z level=INFO msg="attempting TLS dial fprint 1" subsystem=warp/account
+[warp] time=2026-10-16T18:22:23.163Z level=INFO msg="successfully loaded warp identity" subsystem=warp/account
+[warp] time=2026-10-16T18:22:27.994Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.008Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.025Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.043Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.059Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.078Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.093Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.109Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.122Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.136Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.154Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.176Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.195Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.214Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.230Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.243Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.258Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.272Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.286Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.300Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.314Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.328Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.341Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.353Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.370Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.384Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.396Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.410Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.424Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.439Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.454Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.472Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.489Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.502Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.515Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.527Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.541Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.554Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.567Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.581Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.594Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.611Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.624Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.637Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.652Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.665Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.678Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.696Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.710Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.729Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.743Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.758Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.772Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.787Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.802Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.816Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.829Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.843Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.855Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.868Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.881Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.893Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.908Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.921Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.934Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.948Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.962Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.975Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:28.988Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.000Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.014Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.027Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.040Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.056Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.070Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.082Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.094Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.107Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.120Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.135Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.148Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.164Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.178Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.190Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.201Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.218Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.232Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.246Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.258Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.270Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.282Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.297Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.310Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.323Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.336Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.348Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.361Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.372Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.383Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.395Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.406Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.420Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.433Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.448Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.462Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.476Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.493Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.505Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.520Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.533Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.549Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.567Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.583Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.596Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.611Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.625Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.640Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.654Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.665Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.677Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.688Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.700Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.712Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.723Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.734Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.745Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.757Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.768Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.780Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.792Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.804Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.815Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.826Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.837Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.850Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.862Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.877Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.890Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.903Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.916Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.927Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.939Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.953Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.967Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.982Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:29.995Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.007Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.019Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.030Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.041Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.052Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.063Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.077Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.090Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.102Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.115Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.128Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.140Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.151Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.164Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.175Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.188Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.200Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.212Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.225Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.238Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.251Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.263Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.274Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.288Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.299Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.314Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.328Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.340Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.353Z level=ERROR msg="connection test failed"
+[warp] otakudesu.blog      : ERROR (net::ERR_PROXY_CONNECTION_FAILED at https://otakud)
+[warp] time=2026-10-16T18:22:30.365Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.380Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.394Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.409Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.421Z level=ERROR msg="connection test failed"
+[warp] oploverz.am         : ERROR (net::ERR_PROXY_CONNECTION_FAILED at https://oplove)
+[warp] time=2026-10-16T18:22:30.435Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.448Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.462Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.475Z level=ERROR msg="connection test failed"
+[warp] v1.samehadaku.how   : ERROR (net::ERR_PROXY_CONNECTION_FAILED at https://v1.sam)
+[warp] time=2026-10-16T18:22:30.487Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.502Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.513Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.524Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.537Z level=ERROR msg="connection test failed"
+[warp] kuramanime.ing      : ERROR (net::ERR_PROXY_CONNECTION_FAILED at https://kurama)
+[warp] time=2026-10-16T18:22:30.550Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.561Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.572Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.587Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.600Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.613Z level=ERROR msg="connection test failed"
+[warp] time=2026-10-16T18:22:30.628Z level=ERROR msg="connection test failed"
+
+STATUS: LOLOS - sumber tersedia: otakudesu.blog, oploverz.am, v1.samehadaku.how
+
+Laporan tersimpan di: panel-test-result.txt

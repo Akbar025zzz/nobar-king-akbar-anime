@@ -15,7 +15,33 @@ import { useRoom } from "@/hooks/useRoom";
 import { apiGet, apiPost, errorMessage } from "@/lib/api";
 import { episodeLabel } from "@/lib/format";
 import { playableSource } from "@/lib/stream";
-import type { AnimeDetail, EpisodeStreamResolution } from "@/lib/types";
+import type { AnimeDetail, FilmDetail, EpisodeStreamResolution } from "@/lib/types";
+
+type RoomDetail = AnimeDetail | FilmDetail;
+
+interface RoomEpisodeOption {
+  id: string;
+  number: number | null;
+  title: string | null;
+}
+
+function isFilmContentId(contentId: string | null | undefined): boolean {
+  return Boolean(contentId && contentId.startsWith("tmdb:"));
+}
+
+function roomEpisodesOf(detail: RoomDetail | null): RoomEpisodeOption[] {
+  if (!detail) return [];
+  if (isFilmContentId(detail.id)) {
+    const film = detail as FilmDetail;
+    if (film.kind === "movie") return [{ id: "movie", number: null, title: film.title }];
+    return film.episodes.map((episode) => ({
+      id: episode.id,
+      number: episode.number,
+      title: episode.title,
+    }));
+  }
+  return (detail as AnimeDetail).episodes;
+}
 
 export function RoomClient({ roomId }: { roomId: string }) {
   const { user, loading: authLoading } = useAuth();
@@ -43,18 +69,26 @@ export function RoomClient({ roomId }: { roomId: string }) {
     endRoom,
   } = useRoom(roomId, user?.id ?? null);
 
-  const [detail, setDetail] = useState<AnimeDetail | null>(null);
+  const [detail, setDetail] = useState<RoomDetail | null>(null);
   const [resolution, setResolution] = useState<EpisodeStreamResolution | null>(null);
   const [streamLoading, setStreamLoading] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
+
+  /* mode sinema (film): hitung mundur "mulai bareng" + kunci muat ulang player */
+  const [cinemaKey, setCinemaKey] = useState(0);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const lastCinemaStampRef = useRef(0);
 
   /* detail (episode list) */
   useEffect(() => {
     const contentId = room?.content.contentId;
     if (!contentId) return;
     let active = true;
-    apiGet<AnimeDetail>(`/api/anime/${encodeURIComponent(contentId)}`)
+    const path = isFilmContentId(contentId)
+      ? `/api/film/${encodeURIComponent(contentId)}`
+      : `/api/anime/${encodeURIComponent(contentId)}`;
+    apiGet<RoomDetail>(path)
       .then((data) => {
         if (active) setDetail(data);
       })
@@ -73,9 +107,10 @@ export function RoomClient({ roomId }: { roomId: string }) {
     setStreamError(null);
     setResolution(null);
 
-    apiGet<EpisodeStreamResolution>(
-      `/api/anime/${encodeURIComponent(contentId)}/episodes/${encodeURIComponent(currentEpisodeId)}/stream`
-    )
+    const streamPath = isFilmContentId(contentId)
+      ? `/api/film/${encodeURIComponent(contentId)}/episodes/${encodeURIComponent(currentEpisodeId)}/stream`
+      : `/api/anime/${encodeURIComponent(contentId)}/episodes/${encodeURIComponent(currentEpisodeId)}/stream`;
+    apiGet<EpisodeStreamResolution>(streamPath)
       .then((data) => {
         if (active) setResolution(data);
       })
@@ -129,10 +164,45 @@ export function RoomClient({ roomId }: { roomId: string }) {
     }
   }, [toast]);
 
+  const episodes = useMemo(() => roomEpisodesOf(detail), [detail]);
+  const isFilmRoom = isFilmContentId(room?.content.contentId);
+
   const currentEpisode = useMemo(() => {
-    if (!detail || !currentEpisodeId) return null;
-    return detail.episodes.find((item) => item.id === currentEpisodeId) ?? null;
-  }, [detail, currentEpisodeId]);
+    if (!currentEpisodeId) return null;
+    return episodes.find((item) => item.id === currentEpisodeId) ?? null;
+  }, [episodes, currentEpisodeId]);
+
+  /*
+   * Sinyal "mulai bareng" memakai kanal sinkronisasi yang sudah ada: host
+   * mengirim hostPlay(0) dan setiap peserta menampilkan hitung mundur 3-2-1
+   * dari stempel waktu server yang sama, lalu player dimuat ulang.
+   */
+  useEffect(() => {
+    // Host memulai hitung mundur secara lokal (server tidak mengirim gema ke pengirim),
+    // peserta mengikuti sinyal sinkronisasi yang sama.
+    if (!isFilmRoom || isHost || !sync?.isPlaying) return;
+    const stamp = sync.updatedAt ?? 0;
+    if (stamp <= lastCinemaStampRef.current) return;
+    lastCinemaStampRef.current = stamp;
+    setCountdown(3);
+  }, [isFilmRoom, isHost, sync]);
+
+  /** Host: mulai hitung mundur lokal + beri tahu peserta lewat kanal sinkronisasi. */
+  const startCinema = useCallback(() => {
+    setCountdown(3);
+    hostPlay(0);
+  }, [hostPlay]);
+
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown <= 0) {
+      setCinemaKey((key) => key + 1);
+      setCountdown(null);
+      return;
+    }
+    const timer = setTimeout(() => setCountdown((value) => Math.max(0, (value ?? 1) - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
 
   /* ------------------------------ guards ------------------------------ */
 
@@ -199,8 +269,15 @@ export function RoomClient({ roomId }: { roomId: string }) {
               <Link href="/nobar/create" className="btn btn-primary">
                 Buat Room Baru
               </Link>
-              <Link href={`/anime/${room.content.contentId}`} className="btn btn-outline">
-                Lihat Detail Anime
+              <Link
+                href={
+                  isFilmContentId(room.content.contentId)
+                    ? `/film/${room.content.contentId}`
+                    : `/anime/${room.content.contentId}`
+                }
+                className="btn btn-outline"
+              >
+                Lihat Detail
               </Link>
               <Link href="/nobar" className="btn btn-ghost">
                 Daftar Nobar
@@ -259,14 +336,14 @@ export function RoomClient({ roomId }: { roomId: string }) {
 
           {isHost ? (
             <>
-              {detail && detail.episodes.length > 0 ? (
+              {episodes.length > 1 ? (
                 <select
                   value={currentEpisodeId ?? ""}
                   onChange={(event) => hostChangeEpisode(event.target.value)}
                   className="input !w-auto !py-2.5 text-xs"
                   aria-label="Ganti episode"
                 >
-                  {detail.episodes.map((item, index) => (
+                  {episodes.map((item, index) => (
                     <option key={item.id} value={item.id}>
                       {item.number ? `Ep ${item.number}` : `Ep ${index + 1}`}
                     </option>
@@ -341,18 +418,65 @@ export function RoomClient({ roomId }: { roomId: string }) {
               )}
             </div>
           ) : (
-            <VideoPlayer
-              ref={playerRef}
-              source={playable}
-              poster={anime?.posterUrl}
-              roomMode
-              canControl={isHost}
-              syncTarget={sync}
-              onPlayingChange={handlePlayingChange}
-              onSeek={handleSeek}
-              onProgress={saveProgress}
-            />
+            <div className="relative">
+              <VideoPlayer
+                ref={playerRef}
+                key={isFilmRoom ? cinemaKey : undefined}
+                source={playable}
+                poster={anime?.posterUrl}
+                roomMode={!isFilmRoom}
+                canControl={isFilmRoom ? false : isHost}
+                syncTarget={isFilmRoom ? null : sync}
+                onPlayingChange={isFilmRoom ? undefined : handlePlayingChange}
+                onSeek={isFilmRoom ? undefined : handleSeek}
+                onProgress={saveProgress}
+              />
+              {isFilmRoom && countdown !== null ? (
+                <div className="absolute inset-0 z-20 grid place-items-center rounded-2xl bg-ink-950/88">
+                  <div className="text-center">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-fog-500">
+                      Mulai bareng
+                    </p>
+                    <p className="mt-2 text-6xl font-extrabold tracking-tight text-accent-400">
+                      {countdown}
+                    </p>
+                    <p className="mt-3 text-xs text-fog-400">
+                      Setelah hitungan selesai, tekan tombol putar di player mitra.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           )}
+
+          {isFilmRoom ? (
+            <div className="panel flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-fog-600">Mode sinema</p>
+                <p className="mt-1 text-xs leading-relaxed text-fog-400">
+                  Film diputar oleh player mitra di perangkat masing-masing. Host mengatur judul &
+                  episode; tekan “Mulai Bareng” agar semua peserta mulai pada waktu yang sama.
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                {isHost ? (
+                  <button type="button" onClick={startCinema} className="btn btn-primary !py-2.5 text-xs">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+                      <path d="M4.5 3.4v9.2c0 .8.9 1.3 1.6.9l6.6-4.6c.6-.4.6-1.4 0-1.8L6.1 2.5c-.7-.4-1.6.1-1.6.9Z" fill="currentColor" />
+                    </svg>
+                    Mulai Bareng
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setCinemaKey((key) => key + 1)}
+                  className="btn btn-outline !py-2.5 text-xs"
+                >
+                  Muat ulang player
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           <div className="panel space-y-3 rounded-2xl p-4">
             <div className="flex items-center justify-between">
@@ -368,13 +492,13 @@ export function RoomClient({ roomId }: { roomId: string }) {
             <RoomParticipants participants={participants} />
           </div>
 
-          {isHost && detail && detail.episodes.length > 1 ? (
+          {isHost && episodes.length > 1 ? (
             <div className="panel space-y-3 rounded-2xl p-4">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-fog-600">
                 Ganti Episode (Host)
               </p>
               <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                {detail.episodes.map((item, index) => {
+                {episodes.map((item, index) => {
                   const active = item.id === currentEpisodeId;
                   return (
                     <button

@@ -1,0 +1,44 @@
+PANDUAN — UJI KELAYAKAN PANEL (Nobar King Akbar Anime)
+=====================================================
+
+Isi folder:
+  test.js       program uji (mengurus dirinya sendiri: pasang puppeteer + Chromium)
+  package.json  opsional, kalau ingin memasang dependensi manual
+
+
+LANGKAH (sekali saja)
+---------------------
+ 1. Panel -> server -> tab "Files" -> unggah panel-test.zip ke folder root
+ 2. Klik "..." pada berkas zip -> Unarchive   (akan muncul folder: panel-test)
+ 3. Tab "Startup" -> ubah kolom STARTUP COMMAND menjadi:
+
+        node panel-test/test.js
+
+ 4. Simpan, lalu buka tab "Console" -> tekan Start (atau Restart)
+
+
+YANG TERJADI
+------------
+ 1) memasang puppeteer + Chromium (±150 MB, 3-6 menit)
+ 2) membuka otakudesu.blog (uji Cloudflare)
+ 3) mengambil halaman daftar anime
+ 4) menulis hasil ke berkas:  panel-test-result.txt  (muncul di tab Files)
+
+
+HASIL YANG DICARI
+-----------------
+  STATUS: LOLOS     -> panel sanggup menjalankan sumber konten
+  STATUS: SEBAGIAN  -> Chromium hidup, tapi Cloudflare/endpoint diblokir dari IP panel
+  STATUS: GAGAL     -> Chromium tidak bisa jalan; pesan errornya biasanya
+                       "error while loading shared libraries: libnss3.so"
+                       (artinya image panel kekurangan library sistem)
+
+
+PENTING
+-------
+ * Server ini RAM-nya 1 GB. Chromium butuh ±400-700 MB, jadi proses bisa
+   dihentikan sistem karena kehabisan memori (OOM). Kirimkan pesannya bila terjadi.
+ * Selama uji, aplikasi lama (bot Discord) berhenti karena satu server hanya
+   menjalankan satu perintah startup.
+ * SETELAH SELESAI: kembalikan STARTUP COMMAND ke   node start.js   lalu Restart
+   supaya bot Discord-mu hidup lagi.

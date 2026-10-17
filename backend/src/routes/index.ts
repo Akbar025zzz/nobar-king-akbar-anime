@@ -2,6 +2,7 @@ import { Router } from "express";
 import { env } from "../config/env";
 import * as animeController from "../controllers/anime.controller";
 import * as authController from "../controllers/auth.controller";
+import * as filmController from "../controllers/film.controller";
 import * as metaController from "../controllers/meta.controller";
 import * as roomController from "../controllers/room.controller";
 import * as userController from "../controllers/user.controller";
@@ -25,6 +26,7 @@ apiRouter.get("/anime/ongoing", asyncHandler(animeController.ongoing));
 apiRouter.get("/anime/complete", asyncHandler(animeController.complete));
 apiRouter.get("/anime/trending", asyncHandler(animeController.trending));
 apiRouter.get("/anime/genres", asyncHandler(animeController.genres));
+apiRouter.get("/anime/schedule", asyncHandler(animeController.schedule));
 apiRouter.get("/anime", asyncHandler(animeController.getCatalog));
 apiRouter.get(
   "/anime/:id/episodes/:episodeId/stream",
@@ -33,6 +35,21 @@ apiRouter.get(
 );
 apiRouter.get("/anime/:id/episodes", asyncHandler(animeController.episodes));
 apiRouter.get("/anime/:id", asyncHandler(animeController.detail));
+
+/* -------------------------------- film ------------------------------- */
+apiRouter.get("/film/rows", asyncHandler(filmController.rows));
+apiRouter.get(
+  "/film/search",
+  rateLimit({ name: "search", limit: env.rateLimits.searchPerMin, windowMs: 60_000 }),
+  asyncHandler(filmController.search)
+);
+apiRouter.get(
+  "/film/:id/episodes/:episodeId/stream",
+  rateLimit({ name: "stream", limit: env.rateLimits.streamPerMin, windowMs: 60_000 }),
+  asyncHandler(filmController.stream)
+);
+apiRouter.get("/film/:id/episodes", asyncHandler(filmController.episodes));
+apiRouter.get("/film/:id", asyncHandler(filmController.detail));
 
 /* -------------------------- stream proxy ---------------------------- */
 // Signed pass-through for stream bytes (playlists/segments). No rate limit:

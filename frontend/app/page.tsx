@@ -3,10 +3,11 @@ import { AnimeGrid } from "@/components/anime/AnimeGrid";
 import { GenreChips } from "@/components/anime/GenreChips";
 import { HeroBanner } from "@/components/anime/HeroBanner";
 import { SectionHeader } from "@/components/anime/SectionHeader";
+import { FilmRail } from "@/components/film/FilmRail";
 import { RoomCard } from "@/components/room/RoomCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { apiGet, apiGetWithMeta } from "@/lib/api";
-import type { AnimeCard, GenreOption, RoomDTO, TrendingEntry } from "@/lib/types";
+import type { AnimeCard, FilmRow, GenreOption, RoomDTO, TrendingEntry } from "@/lib/types";
 
 export const revalidate = 120;
 
@@ -19,7 +20,7 @@ async function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
 }
 
 export default async function HomePage() {
-  const [ongoing, catalog, trending, genres, liveRooms] = await Promise.all([
+  const [ongoing, catalog, trending, genres, liveRooms, filmRows] = await Promise.all([
     safe(apiGetWithMeta<AnimeCard[]>("/api/anime/ongoing", { server: true, revalidate: 120 }), {
       data: [],
       meta: null,
@@ -31,6 +32,7 @@ export default async function HomePage() {
     safe(apiGet<TrendingEntry[]>("/api/anime/trending", { server: true, revalidate: 30 }), []),
     safe(apiGet<GenreOption[]>("/api/anime/genres", { server: true, revalidate: 3600 }), []),
     safe(apiGet<RoomDTO[]>("/api/rooms/live", { server: true }), []),
+    safe(apiGet<FilmRow[]>("/api/film/rows", { server: true, revalidate: 600 }), []),
   ]);
 
   const featured = ongoing.data[0] ?? catalog.data[0] ?? null;
@@ -76,6 +78,24 @@ export default async function HomePage() {
           emptyState={<EmptyState compact title="Tidak ada data sedang tayang" />}
         />
       </section>
+
+      {filmRows.length > 0 ? (
+        <section className="space-y-6">
+          <SectionHeader
+            kicker="Layar lebar"
+            title="Film & Series"
+            description="Film Indonesia, judul populer, drakor, dan dracin — siap ditonton atau dijadikan sesi nobar."
+            href="/film"
+            linkLabel="Semua film"
+          />
+          {filmRows.slice(0, 2).map((row) => (
+            <div key={row.key} className="space-y-3">
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-fog-600">{row.title}</p>
+              <FilmRail items={row.items} />
+            </div>
+          ))}
+        </section>
+      ) : null}
 
       {trending.length > 0 ? (
         <section className="space-y-4">

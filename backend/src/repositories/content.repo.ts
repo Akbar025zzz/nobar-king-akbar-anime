@@ -19,10 +19,15 @@ export interface ContentRow {
 }
 
 export function rowToCard(row: ContentRow): AnimeCard {
+  const type: AnimeCard["type"] = row.content_id.startsWith("tmdb:movie:")
+    ? "movie"
+    : row.content_id.startsWith("tmdb:series:")
+      ? "series"
+      : "anime";
   return {
     id: row.content_id,
     source: sourceFromContentId(row.content_id),
-    type: "anime",
+    type,
     title: row.title,
     posterUrl: row.poster_url,
     backdropUrl: row.backdrop_url,
@@ -39,7 +44,21 @@ export function rowToCard(row: ContentRow): AnimeCard {
  * Persist/refresh discovered content references so that rooms, favorites and
  * history can resolve a slug back to a valid source URL without guessing.
  */
-export async function upsertContentCards(cards: AnimeCard[]): Promise<void> {
+/** Minimal shape that can be persisted into content_index (anime maupun film). */
+export interface ContentIndexCard {
+  source: string;
+  id: string;
+  sourceUrl: string | null;
+  title: string;
+  posterUrl: string | null;
+  backdropUrl: string | null;
+  status: string | null;
+  year: string | null;
+  score: number | null;
+  genres: string[];
+}
+
+export async function upsertContentCards(cards: ContentIndexCard[]): Promise<void> {
   if (cards.length === 0) return;
 
   const values: unknown[] = [];

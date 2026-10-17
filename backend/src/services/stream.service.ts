@@ -1,6 +1,13 @@
 import axios from "axios";
+import { buildProviderCandidates, providerReferer } from "../adapters/movieProviders/movieProviders";
 import { resolverClient } from "../adapters/resolver/resolver.client";
-import { parseContentId, rankStreamCandidates, toStreamSource } from "../adapters/wajik/wajik.adapter";
+import { parseFilmContentId, parseFilmEpisodeId } from "../adapters/tmdb/tmdb.adapter";
+import {
+  oploverzServerName,
+  parseContentId,
+  rankStreamCandidates,
+  toStreamSource,
+} from "../adapters/wajik/wajik.adapter";
 import { wajikClient } from "../adapters/wajik/wajik.client";
 import { env } from "../config/env";
 import type { EpisodeStreamResolution, StreamSource } from "../domain/contracts";
@@ -8,16 +15,18 @@ import { errors } from "../domain/errors";
 import { cached } from "../utils/cache";
 import { logger } from "../utils/logger";
 import { getEpisodeOrThrow } from "./content.service";
+import { getFilmEpisodeOrThrow } from "./film.service";
 import { buildProxyUrl } from "./streamProxy.service";
 
 /**
  * Stream pipeline (sub-Indo sources):
  *
- *   episode -> wajik /episode -> ranked mirror servers (720p first)
- *   -> wajik /server -> embed URL (desustream / vidhide / ...)
- *   -> resolver service (real browser) -> direct mp4/m3u8
- *   -> quick availability check -> signed same-origin proxy URL for playback
+ *   otakudesu: episode -> wajik /episode -> ranked mirror servers (720p first)
+ *              -> wajik /server -> embed URL -> resolver -> direct mp4/m3u8
+ *   oploverz : episode -> wajik /oploverz/episode -> streamingUrl (upbolt.to)
+ *              -> resolver -> HLS master playlist
  *
+ * Both end in a quick availability check and a signed same-origin proxy URL.
  * No URL guessing and no fake manifests: a source is only reported when the
  * resolved media URL really answers with a video payload.
  */
@@ -112,31 +121,134 @@ async function resolveOtakudesuStream(episodeId: string): Promise<StreamSource> 
   throw errors.streamNotFound();
 }
 
+/**
+ * oploverz menyediakan satu embed per episode (mis. upbolt.to) tanpa daftar
+ * mirror, jadi tidak ada kandidat cadangan: kalau resolver gagal, kita laporkan
+ * error yang jujur dan bukan URL tebakan.
+ */
+async function resolveOploverzStream(episodeId: string): Promise<StreamSource> {
+  const details = await wajikClient.oploverzEpisodeDetails(episodeId);
+  const streamingUrl = details?.streamingUrl?.trim() || null;
+  if (!streamingUrl) {
+    throw errors.streamNotFound();
+  }
+
+  const server = oploverzServerName(streamingUrl);
+  logger.info("resolving stream", { source: "oploverz", episodeId, server, embed: streamingUrl });
+
+  const resolved = await resolverClient.resolve(streamingUrl);
+  if (!resolved?.url) {
+    throw errors.streamNotFound();
+  }
+
+  const source = toStreamSource({
+    url: resolved.url,
+    server,
+    label: `Stream · ${server}`,
+  });
+
+  if (!(await verifyStreamUrl(source))) {
+    throw errors.streamNotFound();
+  }
+
+  logger.info("stream resolved", { episodeId, server, type: source.type });
+  return source;
+}
+
+/**
+ * Film & series.
+ *
+ * Provider embed publik (vidlink, 2embed, multiembed) memutar media di dalam
+ * player milik mereka, dan CDN mereka menolak permintaan dari server
+ * (terverifikasi: HTTP 428 walaupun memakai UA + Referer browser, bahkan dari
+ * dalam Chromium sungguhan). Karena itu film disajikan sebagai **iframe
+ * provider** yang diputar di browser pengguna, dan bukan URL media karangan.
+ *
+ * Konsekuensi yang disampaikan apa adanya di UI: kontrol pemutar (play/pause/
+ * seek) berada di provider, sehingga ruang nobar film memakai "mode sinema"
+ * (host memilih judul/season/episode + hitung mundur mulai bareng + chat),
+ * sementara sinkronisasi otomatis tetap hanya untuk anime.
+ */
+function resolveFilmStream(contentId: string, episodeId: string): StreamSource[] {
+  const parsed = parseFilmContentId(contentId);
+  if (!parsed) {
+    throw errors.contentNotFound("Id film tidak dikenali.");
+  }
+
+  const episodeRef = parsed.kind === "series" ? parseFilmEpisodeId(episodeId) : null;
+  if (parsed.kind === "series" && !episodeRef) {
+    throw errors.episodeNotFound("Format episode harus seperti s1e3.");
+  }
+
+  const candidates = buildProviderCandidates({
+    kind: parsed.kind,
+    tmdbId: parsed.tmdbId,
+    season: episodeRef?.season,
+    episode: episodeRef?.episode,
+  });
+
+  logger.info("film providers prepared", {
+    contentId,
+    episodeId,
+    providers: candidates.map((candidate) => candidate.server),
+  });
+
+  return candidates.map((candidate) => ({
+    id: `${candidate.server}-${Math.random().toString(36).slice(2, 10)}`,
+    type: "iframe" as const,
+    url: candidate.embedUrl,
+    proxyUrl: null,
+    label: candidate.label,
+    server: candidate.server,
+  }));
+}
+
 export async function resolveEpisodeStream(
   contentId: string,
   episodeId: string
 ): Promise<EpisodeStreamResolution> {
   // Ensures the content + episode really exist before touching the source.
-  await getEpisodeOrThrow(contentId, episodeId);
+  const isFilm = parseFilmContentId(contentId) !== null;
+  if (isFilm) {
+    await getFilmEpisodeOrThrow(contentId, episodeId);
+  } else {
+    await getEpisodeOrThrow(contentId, episodeId);
+  }
 
   const parsed = parseContentId(contentId);
   const cacheKey = `stream:${contentId}:${episodeId}`;
 
-  const picked = await cached(cacheKey, env.resolver.streamCacheTtlSeconds, async () => {
-    if (!parsed || parsed.source === "otakudesu") {
-      return resolveOtakudesuStream(episodeId);
+  const sources = await cached(
+    cacheKey,
+    env.resolver.streamCacheTtlSeconds,
+    async (): Promise<StreamSource[]> => {
+      if (isFilm) {
+        return resolveFilmStream(contentId, episodeId);
+      }
+      const single =
+        parsed?.source === "oploverz"
+          ? await resolveOploverzStream(episodeId)
+          : parsed?.source === "otakudesu"
+            ? await resolveOtakudesuStream(episodeId)
+            : null;
+      if (!single) {
+        throw errors.streamNotFound("Sumber konten ini belum mendukung pemutaran.");
+      }
+      return [single];
     }
-    throw errors.streamNotFound("Sumber konten ini belum mendukung pemutaran.");
-  });
+  );
 
-  // Source CDNs (cdn.odcloud.net, googlevideo, ...) do not send CORS headers;
-  // hand the frontend a signed same-origin proxy URL for playback.
-  const withProxy: StreamSource = { ...picked, proxyUrl: buildProxyUrl(picked.url) };
+  // Source CDNs (cdn.odcloud.net, upbolt edge, ...) do not send CORS headers;
+  // hand the frontend a signed same-origin proxy URL for playback. Iframe
+  // provider (film) dimainkan langsung di browser provider, jadi tanpa proxy.
+  const withProxy = sources.map((source) =>
+    source.type === "iframe" ? source : { ...source, proxyUrl: buildProxyUrl(source.url) }
+  );
 
   return {
     contentId,
     episodeId,
-    sources: [withProxy],
-    picked: withProxy,
+    sources: withProxy,
+    picked: withProxy[0] ?? null,
   };
 }

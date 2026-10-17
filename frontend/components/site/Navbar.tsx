@@ -12,6 +12,7 @@ import type { AnimeCard } from "@/lib/types";
 const NAV_LINKS = [
   { href: "/", label: "Beranda" },
   { href: "/explore", label: "Jelajah" },
+  { href: "/film", label: "Film" },
   { href: "/nobar", label: "Nobar" },
 ];
 

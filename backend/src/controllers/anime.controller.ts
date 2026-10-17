@@ -47,6 +47,12 @@ export async function genres(_req: Request, res: Response): Promise<void> {
   res.status(200).json({ status: "success", data: items, meta: { count: items.length } });
 }
 
+/** Jadwal rilis mingguan (terisi untuk sumber oploverz, kosong untuk otakudesu). */
+export async function schedule(_req: Request, res: Response): Promise<void> {
+  const items = await contentService.getSchedule();
+  res.status(200).json({ status: "success", data: items, meta: { count: items.length } });
+}
+
 export async function detail(req: Request, res: Response): Promise<void> {
   const anime = await contentService.getAnimeDetail(req.params.id);
   res.status(200).json({ status: "success", data: anime });

@@ -13,6 +13,9 @@ import type {
   OploverzAnime,
   OploverzAnimeDetails,
   OploverzEpisodeDetails,
+  OploverzHomePayload,
+  OploverzScheduleDay,
+  OploverzSection,
   WajikEnvelope,
   WajikPagination,
 } from "./wajik.types";
@@ -155,6 +158,21 @@ export const wajikClient = {
   },
 
   /* -------------------------------- oploverz -------------------------------- */
+
+  async oploverzHome(): Promise<OploverzHomePayload | null> {
+    const body = await request<OploverzHomePayload>(`/oploverz/home`);
+    return body.data ?? null;
+  },
+
+  async oploverzDirectory(): Promise<OploverzSection[]> {
+    const body = await request<{ sectionList: OploverzSection[] }>(`/oploverz/anime`);
+    return body.data?.sectionList ?? [];
+  },
+
+  async oploverzSchedule(): Promise<OploverzScheduleDay[]> {
+    const body = await request<{ scheduleList: OploverzScheduleDay[] }>(`/oploverz/schedule`);
+    return body.data?.scheduleList ?? [];
+  },
 
   async oploverzSearch(query: string): Promise<OploverzAnime[]> {
     const body = await request<{ animeList: OploverzAnime[] }>(

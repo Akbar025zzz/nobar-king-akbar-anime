@@ -1,7 +1,12 @@
 import type {
+  AnimeDetail,
   AnimeCard,
   AnimeEpisode,
   ChatMessageDTO,
+  ContentCard,
+  ContentEpisode,
+  ContentType,
+  FilmDetail,
   RoomContentRef,
   RoomDTO,
   RoomParticipantInfo,
@@ -14,7 +19,14 @@ import * as roomsRepo from "../repositories/rooms.repo";
 import type { MessageRow, RoomRow } from "../repositories/rooms.repo";
 import { findUserById } from "../repositories/users.repo";
 import { getRuntime, getRuntimePlayback } from "../realtime/state";
-import { episodeNumberFromUrl, getAnimeDetail } from "./content.service";
+import { episodeNumberFromUrl } from "./content.service";
+import {
+  contentTypeFrom,
+  episodeUrlOf,
+  episodesOf,
+  isFilmContentId,
+  resolveContentDetail,
+} from "./contentResolver";
 import { sourceFromContentId } from "../adapters/wajik/wajik.adapter";
 import { logger } from "../utils/logger";
 
@@ -38,14 +50,13 @@ function defaultPlayback(row: RoomRow): RoomPlaybackState {
   };
 }
 
-async function buildAnimeCard(row: RoomRow): Promise<AnimeCard | null> {
+async function buildAnimeCard(row: RoomRow): Promise<ContentCard | null> {
   const indexRow = await getContentRow(row.source ?? "", row.content_id);
   if (indexRow) {
     return rowToCard(indexRow);
   }
   try {
-    const detail = await getAnimeDetail(row.content_id);
-    return detail;
+    return await resolveContentDetail(row.content_id);
   } catch (error) {
     logger.warn("room content lookup failed", {
       roomId: row.id,
@@ -56,13 +67,15 @@ async function buildAnimeCard(row: RoomRow): Promise<AnimeCard | null> {
   }
 }
 
-async function buildEpisodeRef(row: RoomRow): Promise<AnimeEpisode | null> {
+async function buildEpisodeRef(row: RoomRow): Promise<ContentEpisode | null> {
   if (!row.episode_id && !row.episode_url) {
     return null;
   }
   try {
-    const detail = await getAnimeDetail(row.content_id);
-    const found = row.episode_id ? detail.episodes.find((item) => item.id === row.episode_id) : null;
+    const detail = await resolveContentDetail(row.content_id);
+    const found = row.episode_id
+      ? episodesOf(detail).find((item) => item.id === row.episode_id)
+      : null;
     if (found) return found;
   } catch {
     // fall through to the lightweight reference below
@@ -79,7 +92,7 @@ async function buildContentRef(row: RoomRow): Promise<RoomContentRef> {
   const [anime, episode] = await Promise.all([buildAnimeCard(row), buildEpisodeRef(row)]);
   return {
     source: sourceFromContentId(row.content_id),
-    contentType: "anime",
+    contentType: contentTypeFrom(row.content_id),
     contentId: row.content_id,
     contentUrl: row.content_url,
     episodeId: row.episode_id,
@@ -139,31 +152,49 @@ export async function toRoomDTO(row: RoomRow): Promise<RoomDTO> {
 }
 
 export async function createRoom(host: UserDTO, input: CreateRoomInput): Promise<RoomDTO> {
-  const detail = await getAnimeDetail(input.contentId);
+  const isFilm = isFilmContentId(input.contentId);
+  const detail = await resolveContentDetail(input.contentId);
+  const isMovie = isFilm && "kind" in detail && detail.kind === "movie";
+  const episodes = episodesOf(detail);
 
-  let episode: AnimeEpisode | null = null;
-  if (detail.episodes.length > 0) {
+  let episode: ContentEpisode | null = null;
+  if (isMovie) {
+    // Film tunggal diwakili satu "episode" tetap supaya alur ruang seragam.
+    const film = detail as FilmDetail;
+    episode = {
+      id: "movie",
+      season: 0,
+      number: 0,
+      title: film.title,
+      overview: film.overview,
+      stillUrl: film.backdropUrl,
+      airDate: film.releaseDate,
+      runtimeMinutes: film.runtimeMinutes,
+    };
+  } else if (episodes.length > 0) {
     if (!input.episodeId) {
       throw errors.validation("Pilih episode terlebih dahulu sebelum membuat room.");
     }
-    episode = detail.episodes.find((item) => item.id === input.episodeId) ?? null;
+    episode = episodes.find((item) => item.id === input.episodeId) ?? null;
     if (!episode) {
       throw errors.episodeNotFound();
     }
   } else if (input.episodeId) {
-    episode = detail.episodes.find((item) => item.id === input.episodeId) ?? null;
+    episode = episodes.find((item) => item.id === input.episodeId) ?? null;
   }
 
-  const fallbackName = `${detail.title}${episode?.number ? ` — Episode ${episode.number}` : ""}`;
+  const fallbackName = `${detail.title}${
+    !isMovie && episode?.number ? ` — Episode ${episode.number}` : ""
+  }`;
   const roomName = (input.roomName?.trim() || fallbackName).slice(0, 120);
   const privacy: "public" | "private" = input.privacy === "private" ? "private" : "public";
 
   const row = await roomsRepo.createRoom({
     hostId: host.id,
     contentId: detail.id,
-    contentUrl: detail.sourceUrl,
+    contentUrl: "sourceUrl" in detail ? detail.sourceUrl : null,
     episodeId: episode?.id ?? null,
-    episodeUrl: episode?.url ?? null,
+    episodeUrl: episodeUrlOf(episode),
     roomName,
     privacy,
   });
@@ -232,7 +263,7 @@ export async function changeEpisode(
   host: UserDTO,
   roomId: string,
   episodeId: string
-): Promise<{ room: RoomDTO; episode: AnimeEpisode }> {
+): Promise<{ room: RoomDTO; episode: ContentEpisode }> {
   const row = await getRoomRowOrThrow(roomId);
   if (row.host_id !== host.id) {
     throw errors.notRoomHost();
@@ -241,13 +272,13 @@ export async function changeEpisode(
     throw errors.roomEnded();
   }
 
-  const detail = await getAnimeDetail(row.content_id);
-  const episode = detail.episodes.find((item) => item.id === episodeId) ?? null;
+  const detail = await resolveContentDetail(row.content_id);
+  const episode = episodesOf(detail).find((item) => item.id === episodeId) ?? null;
   if (!episode) {
     throw errors.episodeNotFound();
   }
 
-  await roomsRepo.updateRoomEpisode(roomId, episode.id, episode.url);
+  await roomsRepo.updateRoomEpisode(roomId, episode.id, episodeUrlOf(episode));
   const updated = await getRoomRowOrThrow(roomId);
   return { room: await toRoomDTO(updated), episode };
 }

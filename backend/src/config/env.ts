@@ -59,6 +59,23 @@ export const env = {
     secret: readString("STREAM_PROXY_SECRET", "nobar-local-stream-proxy-secret"),
   },
 
+  // Which sub-Indo source the site serves. otakudesu is blocked from some
+  // datacenter IP ranges (Cloudflare WAF returns "Attention Required!"), so a
+  // deployment can switch to oploverz without touching code: CONTENT_SOURCE=oploverz
+  content: {
+    source: (readString("CONTENT_SOURCE", "otakudesu") === "oploverz" ? "oploverz" : "otakudesu") as
+      | "otakudesu"
+      | "oploverz",
+  },
+
+  // TMDb: metadata film & series. Key hanya hidup di server (tidak pernah ke browser).
+  tmdb: {
+    apiKey: readString("TMDB_API_KEY", "4e44d9029b1270a757cddc766a1bcb63"),
+    language: readString("TMDB_LANGUAGE", "id-ID"),
+    timeoutMs: readInt("TMDB_TIMEOUT_MS", 20000),
+    cacheTtlSeconds: readInt("TMDB_CACHE_TTL", 600),
+  },
+
   rateLimits: {
     loginPer15Min: readInt("RATE_LIMIT_LOGIN", 10),
     registerPerHour: readInt("RATE_LIMIT_REGISTER", 5),

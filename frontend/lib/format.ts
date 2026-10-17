@@ -1,4 +1,4 @@
-import type { AnimeEpisode, AnimeStatus } from "./types";
+import type { AnimeStatus } from "./types";
 
 export function statusLabel(status: AnimeStatus): string | null {
   if (status === "ongoing") return "Sedang Tayang";
@@ -18,7 +18,13 @@ export function kindLabel(kind: string | null): string | null {
   return map[kind] ?? kind;
 }
 
-export function episodeLabel(episode: AnimeEpisode | null | undefined): string {
+/** Bentuk minimal yang dibutuhkan label episode — dipakai anime maupun film. */
+export interface EpisodeLabelInput {
+  number: number | null;
+  title: string | null;
+}
+
+export function episodeLabel(episode: EpisodeLabelInput | null | undefined): string {
   if (!episode) return "Episode";
   if (episode.number) return `Episode ${episode.number}`;
   return episode.title ?? "Episode";

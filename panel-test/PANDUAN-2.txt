@@ -1,0 +1,38 @@
+PANDUAN UJI LANJUTAN (test2.js)
+===============================
+
+Uji ini memeriksa, DARI IP PANEL:
+  - sumber sub-Indo mana yang bisa diakses: otakudesu, oploverz, samehadaku, kuramanime
+  - CDN playback (cdn.odcloud.net)
+  - host pendukung (github.com, files.manuscdn.com, api.cloudflareclient.com)
+  - apakah UDP bisa keluar container (syarat jalur WARP)
+
+
+LANGKAH
+-------
+ 1. Tab Files -> unggah panel-test-2.zip -> Unarchive (ke root, isinya masuk ke folder panel-test/)
+    Folder panel-test lama tetap terpakai; puppeteer/Chromium tidak perlu diunduh ulang.
+
+ 2. Tab Startup -> STARTUP COMMAND:
+
+        node panel-test/test2.js
+
+    (opsional, sekalian uji jalur WARP):
+
+        WARP=1 node panel-test/test2.js
+
+ 3. Tab Console -> Start -> tunggu 3-6 menit
+
+ 4. Kirim isi console (atau berkas panel-test-result.txt di tab Files)
+
+ 5. Kembalikan STARTUP COMMAND ke:  node start.js   lalu Restart
+
+
+CARA BACA HASIL
+---------------
+ Bagian 2 & 4 menyebut status tiap host:
+    LOLOS      -> bisa diakses
+    TERTAHAN   -> diblokir Cloudflare dari IP panel
+    DIBLOKIR   -> diblokir (terdeteksi dari isi halaman)
+ Bagian 3: kalau UDP GAGAL, jalur WARP tidak mungkin dipakai.
+ Baris terakhir STATUS: menyebutkan sumber mana saja yang bisa dipakai.

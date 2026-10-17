@@ -115,6 +115,13 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       return;
     }
 
+    // Provider embed (film): media diputar di dalam iframe milik provider,
+    // jadi elemen <video> tidak perlu dilibatkan sama sekali.
+    if (source.type === "iframe" || source.type === "embed") {
+      setReady(true);
+      return;
+    }
+
     let hls: Hls | null = null;
 
     const attachNative = () => {
@@ -385,6 +392,40 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
   const showControls = !roomMode || controlsVisible || !playing;
+
+  // Film & series diputar lewat player mitra (iframe). Kontrol pemutar ada di
+  // sisi provider, jadi di sini kita hanya menampilkan player itu apa adanya —
+  // tanpa tombol palsu yang tidak berfungsi.
+  if (source && (source.type === "iframe" || source.type === "embed")) {
+    return (
+      <div
+        className={`relative aspect-video w-full overflow-hidden rounded-2xl border border-white/[0.07] bg-black ${className ?? ""}`}
+      >
+        <iframe
+          key={source.id}
+          src={source.url}
+          title={source.label ?? "Pemutar mitra"}
+          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+          allowFullScreen
+          referrerPolicy="origin-when-cross-origin"
+          className="h-full w-full"
+        />
+        <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2">
+          <span className="glass rounded-lg px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-fog-200">
+            {source.label ?? source.server ?? "Pemutar mitra"}
+          </span>
+        </div>
+        <a
+          href={source.url}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="glass absolute right-3 top-3 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-fog-100 transition-colors hover:text-accent-300"
+        >
+          Buka di tab baru
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div

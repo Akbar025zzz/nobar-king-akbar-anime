@@ -3,7 +3,13 @@ import { z } from "zod";
 import { errors } from "../domain/errors";
 import { getContentRows, rowToCard } from "../repositories/content.repo";
 import * as libraryRepo from "../repositories/library.repo";
-import { episodeNumberFromUrl, getAnimeDetail } from "../services/content.service";
+import { episodeNumberFromUrl } from "../services/content.service";
+import {
+  contentUrlOf,
+  episodeUrlOf,
+  episodesOf,
+  resolveContentDetail,
+} from "../services/contentResolver";
 import { sourceFromContentId } from "../adapters/wajik/wajik.adapter";
 import { parseOrThrow } from "../utils/validate";
 
@@ -49,11 +55,11 @@ export async function listFavorites(req: Request, res: Response): Promise<void> 
 export async function addFavorite(req: Request, res: Response): Promise<void> {
   const user = requireUser(req);
   const { contentId } = parseOrThrow(favoriteSchema, req.body ?? {});
-  const detail = await getAnimeDetail(contentId);
+  const detail = await resolveContentDetail(contentId);
   await libraryRepo.addFavorite({
     userId: user.id,
     contentId: detail.id,
-    contentUrl: detail.sourceUrl,
+    contentUrl: contentUrlOf(detail),
   });
   res.status(201).json({ status: "success", data: { contentId: detail.id, favorited: true } });
 }
@@ -100,27 +106,28 @@ export async function listHistory(req: Request, res: Response): Promise<void> {
 export async function recordHistory(req: Request, res: Response): Promise<void> {
   const user = requireUser(req);
   const input = parseOrThrow(historySchema, req.body ?? {});
-  const detail = await getAnimeDetail(input.contentId);
+  const detail = await resolveContentDetail(input.contentId);
+  const episodes = episodesOf(detail);
 
   let episodeId = input.episodeId ?? null;
   let episodeUrl: string | null = null;
 
   if (episodeId) {
-    const episode = detail.episodes.find((item) => item.id === episodeId);
+    const episode = episodes.find((item) => item.id === episodeId);
     if (!episode) {
       throw errors.episodeNotFound();
     }
-    episodeUrl = episode.url;
-  } else if (detail.episodes.length > 0) {
-    const first = detail.episodes[0];
+    episodeUrl = episodeUrlOf(episode);
+  } else if (episodes.length > 0) {
+    const first = episodes[0];
     episodeId = first.id;
-    episodeUrl = first.url;
+    episodeUrl = episodeUrlOf(first);
   }
 
   await libraryRepo.upsertHistory({
     userId: user.id,
     contentId: detail.id,
-    contentUrl: detail.sourceUrl,
+    contentUrl: contentUrlOf(detail),
     episodeId,
     episodeUrl,
     positionSeconds: input.position,

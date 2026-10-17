@@ -5,7 +5,8 @@
 Situs web lengkap: katalog anime **sub Indo** (diambil langsung dari otakudesu lewat
 **wajik-anime-api** yang di-*vendor*), halaman tonton dengan pemilih server otomatis,
 room nobar realtime (host mengendalikan pemutaran, semua peserta mengikuti),
-chat dalam room, akun pengguna, favorit, dan riwayat tontonan.
+chat dalam room, akun pengguna, favorit, dan riwayat tontonan — ditambah
+**seksi Film & Series** (Film Indonesia, film populer, drakor, dracin) dengan metadata TMDb.
 
 | | |
 |---|---|
@@ -14,6 +15,7 @@ chat dalam room, akun pengguna, favorit, dan riwayat tontonan.
 | **Backend** | Node.js + TypeScript (Express 4) · Socket.IO 4 · PostgreSQL 16 · Zod · bcryptjs |
 | **Sumber konten** | [wajik-anime-api](https://github.com/wajik45/wajik-anime-api) (MIT) — *vendored & dipatch*, scraper **otakudesu (sub Indo)**; lihat [`wajik-anime-api/PATCHES.md`](wajik-anime-api/PATCHES.md) |
 | **Mesin resolver** | [anime1v-api](https://github.com/FxxMorgan/anime1v-api) (MIT) — *vendored*, dipakai **hanya** untuk mengubah embed player (desustream, vidhide, …) menjadi URL media langsung; lihat [`anime1v-api/PATCHES.md`](anime1v-api/PATCHES.md) |
+| **Metadata film** | [TMDb API v3](https://developer.themoviedb.org/) — katalog, detail, pemain, trailer; poster/backdrop dari `image.tmdb.org`. Atribusi wajib: *This product uses the TMDB API but is not endorsed or certified by TMDB.* |
 
 > **Catatan etika & legal:** proyek ini **tidak menyimpan berkas video apa pun**. Semua data
 > katalog dan stream diambil langsung dari server sumber (otakudesu dan cermin playernya) atas
@@ -50,6 +52,22 @@ chat dalam room, akun pengguna, favorit, dan riwayat tontonan.
 - **Pemutar video pintar** — resolusi server tercepat otomatis (rantai resolver), pemutaran HLS
   via hls.js dengan pemulihan error, kontrol kustom, pintasan keyboard (spasi/←/→/M/F).
 - **Riwayat & lanjutkan tontonan** — progres disimpan berkala, muncul di profil dengan bar progres.
+
+### Film & Series
+- **Menu "Film"** — halaman `/film` dengan hero pilihan dan empat rail: **Film Indonesia**,
+  **Film Populer**, **Drakor**, **Dracin**. Semua metadata diambil langsung dari TMDb
+  (bahasa `id-ID`), tanpa data karangan: judul/tanggal/skor yang tidak tersedia tampil kosong.
+- **Detail film & series** — backdrop, poster, sinopsis, genre, durasi/jumlah musim, pemain
+  utama, dan **trailer YouTube** (trailer selalu diambil dalam `en-US` agar tidak kosong).
+  Series punya pemilih musim dan daftar episode lengkap dari TMDb.
+- **Halaman tonton film** — pemutar berupa *embed* penyedia (vidlink, 2embed, multiembed)
+  dengan pemilih server; tautan "buka di tab baru" disediakan bila penyedia menolak *frame*.
+- **Nobar film (mode sinema)** — hitung mundur 3-2-1 yang dikirim host ke semua peserta,
+  lalu pemutar dimuat ulang serentak; chat dan daftar peserta tetap realtime.
+  Kontrol putar/jeda/seek berada di penyedia embed, sehingga **sinkronisasi otomatis
+  frame-per-frame tidak diklaim** (lihat [Batasan](#batasan)).
+- **Favorit, riwayat, dan room** menerima film dan anime lewat satu jalur (`contentResolver`),
+  jadi daftar favorit/riwayat serta room nobar bisa berisi keduanya.
 
 ### Nobar (nonton bareng) realtime
 - **Buat room** dari halaman mana pun (detail/watch), atur **publik / privat**, nama room.
@@ -97,6 +115,24 @@ Semua tangkapan layar diambil dari versi yang berjalan (lihat `docs/screenshots/
 |---|---|
 | ![Jelajah](docs/screenshots/03-explore.png) | ![Mobile](docs/screenshots/16-mobile-home.png) |
 
+**Seksi Film & Series** (18 Okt 2026 — screenshot 21–39):
+
+| Katalog film | Detail film + pemain |
+|---|---|
+| ![Katalog film](docs/screenshots/21-film-catalog.png) | ![Detail film](docs/screenshots/23-film-detail.png) |
+
+| Detail series (musim & episode) | Tonton film (embed penyedia) |
+|---|---|
+| ![Detail series](docs/screenshots/26-film-series-detail.png) | ![Tonton film](docs/screenshots/28-film-watch.png) |
+
+| Room film — hitung mundur host | Room film — peserta |
+|---|---|
+| ![Hitung mundur host](docs/screenshots/37-film-room-countdown-host.png) | ![Peserta](docs/screenshots/38-film-room-countdown-guest.png) |
+
+| Film di beranda | Film di mobile |
+|---|---|
+| ![Seksi film beranda](docs/screenshots/30-home-film-section.png) | ![Film mobile](docs/screenshots/31-film-mobile.png) |
+
 ---
 
 ## Arsitektur
@@ -134,6 +170,9 @@ flowchart LR
         PP["Resolver embed → media<br/>(desustream / vidhide / …)"]
     end
 
+    TMDB["TMDb API v3<br/>(metadata film & series)"]
+    EMBED["Penyedia embed film<br/>(vidlink · 2embed · multiembed)"]
+
     ANIME["otakudesu + cermin player (CDN)"]
 
     B --> GW
@@ -150,6 +189,8 @@ flowchart LR
     RES --> RSV
     SRC --> ANIME
     RSV --> ANIME
+    API --> TMDB
+    CC -.->|iframe| EMBED
 ```
 
 **Prinsip desain**
@@ -170,6 +211,12 @@ flowchart LR
 - **Resolver, bukan penebak.** URL stream diambil bertahap: daftar server episode → embed pilihan
   (prioritas `odcdn`/`odstream`/`ondesuhd`) → mesin resolver → diverifikasi (bukan `text/html`)
   → baru diberikan ke pemutar lewat proksi bertanda tangan.
+- **Dua jenis konten, satu kontrak.** Anime (`otakudesu:…`) dan film (`tmdb:movie:<id>` /
+  `tmdb:series:<id>`) memakai tipe internal yang sama (`ContentCard`, `ContentDetail`,
+  `StreamSource`); `services/contentResolver.ts` menjadi satu-satunya pintu yang menerjemahkan
+  id konten menjadi detail/episode/URL, sehingga room, favorit, dan riwayat tidak perlu tahu
+  asal kontennya. Film memakai **embed penyedia** (`type: "iframe"`, tanpa proksi) karena
+  CDN-nya memblokir permintaan dari IP server (HTTP 428) — lihat [Batasan](#batasan).
 
 ---
 
@@ -178,10 +225,11 @@ flowchart LR
 ```
 nobar-king-akbar-anime/
 ├── frontend/                 # Next.js 15 (App Router) — UI + SSR
-│   ├── app/                  # rute: /, /explore, /anime/[id], /watch/[id]/[ep],
+│   ├── app/                  # rute: /, /explore, /anime/[id], /film, /film/[id],
+│   │                         #        /watch/[id]/[ep],
 │   │                         #        /nobar, /nobar/create, /nobar/room/[roomId],
 │   │                         #        /rooms, /login, /register, /profile
-│   ├── components/           # anime · player · room · site · ui · providers · auth · watch
+│   ├── components/           # anime · film · player · room · site · ui · providers · auth · watch
 │   ├── hooks/useRoom.ts      # mesin state realtime room (socket + sync + chat)
 │   ├── lib/                  # api client, tipe, format, socket singleton
 │   └── Dockerfile
@@ -189,8 +237,9 @@ nobar-king-akbar-anime/
 │   ├── src/
 │   │   ├── adapters/wajik/   # klien + normalizer sumber otakudesu (satu-satunya yang tahu bentuk mentah)
 │   │   ├── adapters/resolver/ # klien mesin resolver embed → URL media langsung
+│   │   ├── adapters/tmdb/    # klien + normalizer metadata film (TMDb v3, bahasa id-ID)
 │   │   ├── controllers/ routes/ middleware/   # HTTP layer
-│   │   ├── services/         # konten · auth · room · stream · statistik
+│   │   ├── services/         # konten · film · contentResolver · auth · room · stream · statistik
 │   │   ├── realtime/         # state room + event bus + hub Socket.IO
 │   │   ├── repositories/     # SQL (users, rooms, library, content index)
 │   │   └── database/         # pool + migrasi SQL versioned
@@ -284,6 +333,10 @@ sudo nginx -t && sudo nginx
 | `SESSION_COOKIE_NAME` / `SESSION_TTL_DAYS` | `nka_session` / `30` | Sesi login |
 | `WAJIK_API_URL` | `http://127.0.0.1:4200` | Alamat wajik-anime-api (sumber konten, sub Indo) |
 | `WAJIK_TIMEOUT_MS` / `WAJIK_CACHE_TTL` | `60000` / `300` | Timeout (browser fetch lebih lambat) & cache sumber (detik) |
+| `CONTENT_SOURCE` | `otakudesu` | Pilih sumber anime: `otakudesu` atau `oploverz` (berguna bila IP server diblokir Cloudflare otakudesu) |
+| `TMDB_API_KEY` | kunci publik demo | Kunci TMDb v3; **ganti dengan kunci milik sendiri** untuk produksi |
+| `TMDB_LANGUAGE` | `id-ID` | Bahasa metadata film (trailer selalu `en-US`) |
+| `TMDB_TIMEOUT_MS` / `TMDB_CACHE_TTL` | `20000` / `600` | Timeout & cache metadata film (detik) |
 | `RESOLVER_API_URL` | `http://127.0.0.1:4100/api/v1/anime` | Alamat mesin resolver embed |
 | `RESOLVER_API_KEY` | — | API key internal ke mesin resolver |
 | `RESOLVER_TIMEOUT_MS` | `120000` | Timeout resolusi embed (Puppeteer) |
@@ -327,6 +380,10 @@ Semua respons memakai envelope konsisten:
 | GET | `/api/anime/:id` | — | Detail + daftar episode |
 | GET | `/api/anime/:id/episodes` | — | Daftar episode saja |
 | GET | `/api/anime/:id/episodes/:episodeId/stream` | — | **Resolusi server tercepat** (di-cache 5 menit) |
+| GET | `/api/film/rows` | — | Empat rail katalog film: `film-indonesia`, `film-populer`, `drakor`, `dracin` |
+| GET | `/api/film/search?q=` | — | Pencarian film & series via TMDb |
+| GET | `/api/film/:id` | — | Detail film/series (`tmdb:movie:<id>` atau `tmdb:series:<id>`) + musim & episode |
+| GET | `/api/film/:id/episodes/:episodeId/stream` | — | Sumber embed film/series (`movie` atau `s1e3`) — bertipe `iframe` |
 | GET | `/api/stream/proxy?u=&s=` | — | Proksi byte stream bertanda tangan (same-origin; playlist/segmen/rentang mp4). Hanya URL yang ditandatangani backend yang diterima |
 | POST | `/api/auth/register` | — | Daftar (rate limit 5/jam/IP) |
 | POST | `/api/auth/login` | — | Masuk (rate limit 10/15 menit/IP) |
@@ -432,6 +489,13 @@ PostgreSQL, migrasi versioned (`backend/src/database/migrations/`, dijalankan ot
   origin kita, dan hanya URL ber-HMAC sah yang diterima (bukan open proxy).
 - Jika sumber tidak menyediakan nilai (mis. status judul), API mengembalikan `null` — UI
   menampilkan apa adanya, bukan data karangan.
+- **Film & Series** memakai **TMDb API v3** untuk katalog (`discover` dengan
+  `with_original_language=id` untuk film Indonesia, `ko` untuk drakor, `zh` untuk dracin,
+  ditambah daftar populer), detail, pemain, dan trailer. Pemutaran memakai **embed penyedia**
+  (`vidlink.pro`, `2embed.cc`, `multiembed.mov`) yang dikirim sebagai daftar `StreamSource`
+  bertipe `iframe`; tidak ada proksi byte dan tidak ada berkas yang disimpan. Provider dapat
+  memblokir IP server (vidlink membalas HTTP 428 dari datacenter), karena itu pemutar film
+  berjalan di browser pengguna.
 
 ---
 
@@ -491,6 +555,14 @@ E2E_BASE=http://localhost:3000 node scripts/playback-check.js
   terasa lebih lambat (± 3–8 detik) sebelum cache menghangat; kegagalan Cloudflare tetap
   ditampilkan sebagai error yang jujur, bukan daftar kosong palsu.
 - Progres tontonan disimpan tiap ~5 detik saat video berjalan (bukan realtime per detik).
+- **Sinkronisasi film bersifat "mode sinema", bukan frame-sinkron.** Pemutar film adalah embed
+  pihak ketiga di dalam `<iframe>`, sehingga backend tidak dapat membaca atau mengatur
+  `currentTime` di dalamnya (CDN-nya juga menolak permintaan dari IP server). Yang disinkronkan
+  adalah **momen mulai**: host menekan "Mulai Bareng" → hitung mundur 3-2-1 → semua peserta
+  memuat ulang pemutar pada detik yang sama. Jika peserta menjeda sendiri, posisinya bisa
+  bergeser; tombol "Muat ulang player" tersedia untuk menyamakan kembali.
+- Katalog film bergantung pada ketersediaan TMDb; bila TMDb tidak dapat dihubungi, halaman film
+  menampilkan error state yang jujur (bukan daftar kosong palsu).
 - `npm run build` frontend menggunakan Turbopack; bila lingkungan Anda bermasalah dengan
   Turbopack, gunakan `npx next build` (webpack).
 

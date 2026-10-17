@@ -166,3 +166,42 @@ export interface OploverzEpisodeDetails {
   hasNextEpisode?: boolean;
   nextEpisode?: unknown;
 }
+
+/* --------------------- oploverz: home / direktori / jadwal ------------------- */
+
+/** Item dari /oploverz/home (popularToday & latestRelease berisi episode). */
+export interface OploverzHomeAnime {
+  title: string;
+  poster?: string | null;
+  type?: string | null;
+  episode?: string | null;
+  status?: string | null;
+  score?: string | null;
+  genres?: string[] | null;
+  releaseTime?: string | null;
+  seriesName?: string | null;
+  href?: string | null;
+}
+
+export interface OploverzHomePayload {
+  popularToday?: { animeList?: OploverzHomeAnime[] | null } | null;
+  latestRelease?: { animeList?: OploverzHomeAnime[] | null } | null;
+}
+
+/** Entri direktori A-Z (/oploverz/anime) - hanya judul + slug. */
+export interface OploverzDirectoryEntry {
+  title: string;
+  slug?: string | null;
+  href?: string | null;
+}
+
+export interface OploverzSection {
+  letter: string;
+  animeList?: OploverzDirectoryEntry[] | null;
+}
+
+/** Grup jadwal rilis (/oploverz/schedule) - berisi poster + slug. */
+export interface OploverzScheduleDay {
+  day: string;
+  animeList?: OploverzAnime[] | null;
+}

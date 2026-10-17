@@ -1,9 +1,15 @@
 import {
+  oploverzSlugFromHref,
   parseContentId,
   parseEpisodeNumber,
   toAnimeDetail,
+  toAnimeDetailFromOploverz,
   toCardFromCompleted,
   toCardFromOngoing,
+  toCardFromOploverz,
+  toCardFromOploverzDirectory,
+  toCardFromOploverzHome,
+  toCardFromOploverzSchedule,
   toCardFromSearch,
   toGenreList,
 } from "../adapters/wajik/wajik.adapter";
@@ -26,12 +32,27 @@ import { logger } from "../utils/logger";
  * Content service backed by the self-hosted wajik-anime-api (sub-Indo).
  *
  * Everything is scraped live from the source, so new episodes and titles show
- * up automatically: the API reads the ongoing/completed lists and each detail
- * page on demand. We only cache briefly (WAJIK_CACHE_TTL, default 5 minutes)
- * to protect the source and keep the UI snappy.
+ * up automatically. Which source is served depends on CONTENT_SOURCE:
+ *
+ *   otakudesu - katalog lengkap (ongoing/completed/genre/pencarian)
+ *   oploverz  - dipakai untuk deployment yang IP-nya diblokir Cloudflare oleh
+ *               otakudesu; menyediakan episode terbaru, direktori A-Z, jadwal
+ *               rilis, dan pencarian (tanpa genre & tanpa daftar "Selesai",
+ *               karena sumbernya memang tidak menyediakannya - jadi UI harus
+ *               menampilkan keadaan kosong, bukan data karangan).
  */
 
 const TTL = env.wajik.cacheTtlSeconds;
+const SOURCE = env.content.source;
+const isOploverz = SOURCE === "oploverz";
+
+/** Satuan halaman katalog oploverz (direktori A-Z dipecah per halaman). */
+const OPLOVERZ_CATALOG_PAGE_SIZE = 60;
+
+export interface ScheduleGroup {
+  day: string;
+  items: AnimeCard[];
+}
 
 async function persistCards(cards: AnimeCard[]): Promise<void> {
   try {
@@ -43,7 +64,62 @@ async function persistCards(cards: AnimeCard[]): Promise<void> {
   }
 }
 
+/** Membuang kartu duplikat (oploverz memuat beberapa episode dari seri sama). */
+function dedupeCards(cards: (AnimeCard | null)[]): AnimeCard[] {
+  const seen = new Set<string>();
+  const result: AnimeCard[] = [];
+  for (const card of cards) {
+    if (!card || seen.has(card.id)) continue;
+    seen.add(card.id);
+    result.push(card);
+  }
+  return result;
+}
+
+/** Normalisasi judul untuk pencocokan (huruf kecil, tanpa tanda baca). */
+function normalizeTitleKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+/**
+ * Peta judul -> slug dari direktori A-Z.
+ *
+ * Daftar "episode terbaru" oploverz tidak menyertakan slug seri, dan URL
+ * episode tidak selalu identik dengan slug seri (contoh nyata:
+ * "ao-ashi-s2-episode-02-subtitle-indonesia" padahal slug serinya
+ * "ao-ashi-season-2"), jadi slug dicocokkan lewat judul seri.
+ */
+async function oploverzSlugMap(): Promise<Map<string, string>> {
+  return cached(`oploverz:slugmap`, Math.max(TTL, 1800), async () => {
+    const sections = await wajikClient.oploverzDirectory();
+    const map = new Map<string, string>();
+    for (const section of sections) {
+      for (const entry of section.animeList ?? []) {
+        const slug = entry.slug ?? oploverzSlugFromHref(entry.href);
+        if (!slug || !entry.title) continue;
+        map.set(normalizeTitleKey(entry.title), slug);
+      }
+    }
+    return map;
+  });
+}
+
+/** Direktori A-Z sebagai kartu (dipakai untuk katalog). */
+async function oploverzDirectoryCards(): Promise<AnimeCard[]> {
+  return cached(`oploverz:directory:cards`, Math.max(TTL, 1800), async () => {
+    const sections = await wajikClient.oploverzDirectory();
+    const cards = dedupeCards(
+      sections.flatMap((section) => (section.animeList ?? []).map(toCardFromOploverzDirectory))
+    );
+    cards.sort((a, b) => a.title.localeCompare(b.title, "id"));
+    return cards;
+  });
+}
+
 export async function getGenres(): Promise<{ name: string; slug: string }[]> {
+  if (isOploverz) {
+    return [];
+  }
   return cached("genres", Math.max(TTL, 3600), async () => {
     const genres = await wajikClient.genres();
     return toGenreList(genres);
@@ -52,6 +128,23 @@ export async function getGenres(): Promise<{ name: string; slug: string }[]> {
 
 export async function getOngoing(page: number): Promise<Paginated<AnimeCard>> {
   const safePage = Math.max(1, page || 1);
+
+  if (isOploverz) {
+    return cached(`oploverz:latest:${safePage}`, TTL, async () => {
+      const [home, slugMap] = await Promise.all([wajikClient.oploverzHome(), oploverzSlugMap()]);
+      const rows = home?.latestRelease?.animeList ?? [];
+      const cards = dedupeCards(
+        rows.map((row) => {
+          const key = normalizeTitleKey(row.seriesName || row.title || "");
+          const slug = slugMap.get(key) ?? null;
+          return toCardFromOploverzHome(row, slug);
+        })
+      );
+      await persistCards(cards);
+      return { items: cards, meta: { page: 1, hasNextPage: false } };
+    });
+  }
+
   return cached(`ongoing:${safePage}`, TTL, async () => {
     const { items, pagination } = await wajikClient.ongoing(safePage);
     const cards = items.map(toCardFromOngoing);
@@ -65,6 +158,12 @@ export async function getOngoing(page: number): Promise<Paginated<AnimeCard>> {
 
 export async function getCompleted(page: number): Promise<Paginated<AnimeCard>> {
   const safePage = Math.max(1, page || 1);
+
+  if (isOploverz) {
+    // oploverz tidak menyediakan daftar "Selesai": kembalikan kosong apa adanya.
+    return { items: [], meta: { page: safePage, hasNextPage: false } };
+  }
+
   return cached(`completed:${safePage}`, TTL, async () => {
     const { items, pagination } = await wajikClient.completed(safePage);
     const cards = items.map(toCardFromCompleted);
@@ -76,15 +175,35 @@ export async function getCompleted(page: number): Promise<Paginated<AnimeCard>> 
   });
 }
 
-/** Catalog = completed list (the largest poster-bearing paginated list). */
+/**
+ * Katalog:
+ * - otakudesu -> daftar completed (paling lengkap dan berposter)
+ * - oploverz  -> direktori A-Z (judul saja; poster tidak tersedia di halaman itu)
+ */
 export async function getCatalog(page: number): Promise<Paginated<AnimeCard>> {
-  return getCompleted(page);
+  const safePage = Math.max(1, page || 1);
+
+  if (!isOploverz) {
+    return getCompleted(safePage);
+  }
+
+  const cards = await oploverzDirectoryCards();
+  const start = (safePage - 1) * OPLOVERZ_CATALOG_PAGE_SIZE;
+  const slice = cards.slice(start, start + OPLOVERZ_CATALOG_PAGE_SIZE);
+  return {
+    items: slice,
+    meta: { page: safePage, hasNextPage: start + OPLOVERZ_CATALOG_PAGE_SIZE < cards.length },
+  };
 }
 
 export async function getByGenre(genreId: string, page: number): Promise<Paginated<AnimeCard>> {
   const safePage = Math.max(1, page || 1);
   const cleanGenre = genreId.trim().toLowerCase();
   if (!cleanGenre) {
+    return { items: [], meta: { page: safePage, hasNextPage: false } };
+  }
+  if (isOploverz) {
+    // oploverz tidak menyediakan filter genre.
     return { items: [], meta: { page: safePage, hasNextPage: false } };
   }
 
@@ -99,13 +218,35 @@ export async function getByGenre(genreId: string, page: number): Promise<Paginat
   });
 }
 
+/** Jadwal rilis mingguan (hanya oploverz). */
+export async function getSchedule(): Promise<ScheduleGroup[]> {
+  if (!isOploverz) {
+    return [];
+  }
+  return cached(`oploverz:schedule`, Math.max(TTL, 1800), async () => {
+    const days = await wajikClient.oploverzSchedule();
+    return days
+      .map((day) => ({
+        day: day.day,
+        items: dedupeCards((day.animeList ?? []).map(toCardFromOploverzSchedule)),
+      }))
+      .filter((group) => group.items.length > 0);
+  });
+}
+
 export async function searchAnime(query: string): Promise<AnimeCard[]> {
   const clean = query.trim();
   if (!clean) {
     return [];
   }
 
-  return cached(`search:${clean.toLowerCase()}`, Math.min(TTL, 180), async () => {
+  return cached(`search:${SOURCE}:${clean.toLowerCase()}`, Math.min(TTL, 180), async () => {
+    if (isOploverz) {
+      const results = await wajikClient.oploverzSearch(clean);
+      const cards = dedupeCards(results.map(toCardFromOploverz));
+      await persistCards(cards);
+      return cards;
+    }
     const results = await wajikClient.search(clean);
     const cards = results.map(toCardFromSearch);
     await persistCards(cards);
@@ -120,6 +261,16 @@ export async function getAnimeDetail(contentId: string): Promise<AnimeDetail> {
   }
 
   return cached(`detail:${contentId}`, TTL, async () => {
+    if (parsed.source === "oploverz") {
+      const raw = await wajikClient.oploverzAnimeDetails(parsed.animeId);
+      if (!raw) {
+        throw errors.contentNotFound();
+      }
+      const detail = toAnimeDetailFromOploverz(raw, parsed.animeId);
+      await persistCards([detail]);
+      return detail;
+    }
+
     if (parsed.source !== "otakudesu") {
       throw errors.contentNotFound("Sumber konten ini belum didukung untuk detail.");
     }
@@ -159,7 +310,8 @@ async function findEpisodeFallback(
   const parsed = parseContentId(contentId);
   if (!parsed) return null;
   const slug = parsed.animeId.replace(/-sub-indo$/i, "");
-  if (!episodeId.includes(slug.slice(0, 8))) return null;
+  const probe = slug.slice(0, 8);
+  if (probe.length < 4 || !episodeId.includes(probe)) return null;
   return {
     id: episodeId,
     number: parseEpisodeNumber(null, episodeId),
@@ -200,10 +352,13 @@ export async function getTrending(limit = 8): Promise<TrendingEntry[]> {
 
 /**
  * Episode number from an episode URL (otakudesu URLs end with
- * "...-episode-3-sub-indo"), used when a stored reference needs a number.
+ * "...-episode-3-sub-indo", oploverz with "...-episode-05-subtitle-indonesia"),
+ * used when a stored reference needs a number.
  */
 export function episodeNumberFromUrl(url: string | null): number | null {
   if (!url) return null;
   const slug = url.split("/").filter(Boolean).pop() ?? "";
   return parseEpisodeNumber(null, slug);
 }
+
+export { SOURCE as activeContentSource };

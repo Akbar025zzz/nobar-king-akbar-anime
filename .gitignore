@@ -21,3 +21,7 @@ downloads/
 Thumbs.db
 .vscode/
 .idea/
+
+# binari uji panel (tidak perlu di repo)
+panel-test/warp/
+panel-test/warp-plus.zip

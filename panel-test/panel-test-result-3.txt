@@ -1,0 +1,21 @@
+
+=== 1. Lingkungan ===
+waktu     : 2026-10-16T18:34:24.646Z
+node      : v22.13.0 | RAM bebas: 21353 MB
+
+=== 2. Cari URL embed dari halaman episode oploverz ===
+halaman   : HTTP 200 (71008 char)
+embed     : https://upbolt.to/e/tsjpa9jb6678
+
+=== 3. Buka embed di Chromium & ekstrak media ===
+membuka   : https://upbolt.to/e/tsjpa9jb6678
+judul     : (kosong)
+request   : 0 kandidat media sejauh ini
+HTML      : 5837 char | iframe: 0
+
+=== 4. Media yang ditemukan ===
+(tidak ada .m3u8/.mp4 terdeteksi)
+
+STATUS: GAGAL - embed tidak bisa dipecahkan dari panel (playback tidak akan jalan)
+
+Laporan tersimpan di: panel-test-result-3.txt

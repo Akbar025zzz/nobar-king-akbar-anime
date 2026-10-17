@@ -15,6 +15,9 @@ import type {
   OtakudesuOngoingAnime,
   OtakudesuSearchAnime,
   OploverzAnime,
+  OploverzAnimeDetails,
+  OploverzDirectoryEntry,
+  OploverzHomeAnime,
 } from "./wajik.types";
 
 /**
@@ -40,6 +43,7 @@ export function parseContentId(rawId: string): { source: ContentSource; animeId:
 
 /** Best-effort source lookup for rows stored before the namespaced ids. */
 export function sourceFromContentId(rawId: string): ContentSource {
+  if (rawId.startsWith("tmdb:")) return "tmdb";
   return parseContentId(rawId)?.source ?? "otakudesu";
 }
 
@@ -297,5 +301,151 @@ export function toStreamSource(params: {
     proxyUrl: null,
     label: params.label,
     server: params.server,
+  };
+}
+
+/* --------------------------- oploverz (panel mode) -------------------------- */
+
+/** Akhiran episode pada URL oploverz, mis. "-episode-05-subtitle-indonesia". */
+const OPLOVERZ_EPISODE_SUFFIX = /-episode-[a-z0-9]+(?:-subtitle-indonesia)?$/i;
+
+function lastUrlSegment(href: string | null | undefined): string | null {
+  if (!href) return null;
+  const clean = href.split("?")[0].replace(/\/+$/, "");
+  const segment = clean.split("/").filter(Boolean).pop() ?? "";
+  return segment || null;
+}
+
+/**
+ * Slug seri dari sebuah URL oploverz. Halaman detail memakai
+ * `/anime/<slug>/`, sedangkan daftar episode memakai URL episode
+ * (`/<slug>-episode-05-subtitle-indonesia/`), sehingga akhiran episode
+ * perlu dipotong lebih dulu.
+ */
+export function oploverzSlugFromHref(href: string | null | undefined): string | null {
+  if (!href) return null;
+  const segment = lastUrlSegment(href);
+  if (!segment) return null;
+  if (href.includes("/anime/")) return segment;
+  const stripped = segment.replace(OPLOVERZ_EPISODE_SUFFIX, "");
+  return stripped || segment;
+}
+
+/** Episode id oploverz = segmen terakhir URL episode. */
+export function oploverzEpisodeIdFromHref(href: string | null | undefined): string | null {
+  return lastUrlSegment(href);
+}
+
+/** Nama server embed dari URL-nya, mis. upbolt.to -> "upbolt". */
+export function oploverzServerName(url: string): string {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./i, "");
+    return host.split(".")[0] || "embed";
+  } catch {
+    return "embed";
+  }
+}
+
+function parseYearFromSeason(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const match = value.match(/(19|20)\d{2}/);
+  return match ? match[0] : null;
+}
+
+/** Kartu dari item /oploverz/home (judul seri + poster episode). */
+export function toCardFromOploverzHome(
+  raw: OploverzHomeAnime,
+  slugOverride?: string | null
+): AnimeCard | null {
+  const slug = slugOverride || oploverzSlugFromHref(raw.href);
+  if (!slug) return null;
+  return {
+    id: contentId("oploverz", slug),
+    source: "oploverz",
+    type: "anime",
+    title: (raw.seriesName || raw.title || "").trim(),
+    posterUrl: raw.poster ?? null,
+    backdropUrl: null,
+    status: parseStatus(raw.status),
+    year: null,
+    score: parseScore(raw.score),
+    kind: raw.type ?? null,
+    genres: Array.isArray(raw.genres) ? raw.genres : [],
+    sourceUrl: raw.href ?? null,
+  };
+}
+
+/** Kartu dari direktori A-Z (sumber tidak menyediakan poster di halaman ini). */
+export function toCardFromOploverzDirectory(entry: OploverzDirectoryEntry): AnimeCard | null {
+  const slug = entry.slug ?? oploverzSlugFromHref(entry.href);
+  if (!slug) return null;
+  return {
+    id: contentId("oploverz", slug),
+    source: "oploverz",
+    type: "anime",
+    title: entry.title,
+    posterUrl: null,
+    backdropUrl: null,
+    status: null,
+    year: null,
+    score: null,
+    kind: null,
+    genres: [],
+    sourceUrl: entry.href ?? null,
+  };
+}
+
+/** Kartu dari jadwal rilis (poster + slug tersedia). */
+export function toCardFromOploverzSchedule(raw: OploverzAnime): AnimeCard | null {
+  const slug = raw.slug ?? oploverzSlugFromHref(raw.href);
+  if (!slug) return null;
+  return {
+    id: contentId("oploverz", slug),
+    source: "oploverz",
+    type: "anime",
+    title: raw.title,
+    posterUrl: raw.poster ?? null,
+    backdropUrl: null,
+    status: parseStatus(raw.status),
+    year: null,
+    score: null,
+    kind: raw.type ?? null,
+    genres: [],
+    sourceUrl: raw.href ?? null,
+  };
+}
+
+export function toAnimeDetailFromOploverz(raw: OploverzAnimeDetails, slug: string): AnimeDetail {
+  const episodes: AnimeEpisode[] = (raw.episodeList ?? []).map((episode) => {
+    const id = oploverzEpisodeIdFromHref(episode.href) ?? `${slug}-${episode.episode}`;
+    return {
+      id,
+      number: parseEpisodeNumber(episode.episode || episode.title, id),
+      title: episode.title || null,
+      url: episode.href ?? null,
+    };
+  });
+
+  return {
+    id: contentId("oploverz", slug),
+    source: "oploverz",
+    type: "anime",
+    title: raw.title,
+    posterUrl: raw.poster ?? null,
+    backdropUrl: null,
+    status: parseStatus(raw.status),
+    year: parseYearFromSeason(raw.season),
+    score: parseScore(raw.rating),
+    kind: raw.type ?? null,
+    genres: Array.isArray(raw.genres) ? raw.genres.filter(Boolean) : [],
+    sourceUrl: null,
+    description: normalizeSynopsis(raw.synopsis),
+    titleJapanese: null,
+    totalEpisodes: episodes.length || null,
+    startDate: raw.releasedOn ?? null,
+    endDate: raw.updatedOn ?? null,
+    votes: null,
+    trailerUrl: null,
+    episodes,
   };
 }
