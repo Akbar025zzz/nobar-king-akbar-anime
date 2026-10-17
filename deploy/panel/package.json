@@ -1,0 +1,14 @@
+{
+  "name": "nobar-panel-runtime",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Runtime deployment container untuk Nobar King Akbar Anime (gateway + orkestrator + PostgreSQL embedded)",
+  "scripts": {
+    "start": "node start.mjs"
+  },
+  "dependencies": {
+    "embedded-postgres": "^18.4.0-beta.17",
+    "http-proxy": "^1.18.1"
+  }
+}

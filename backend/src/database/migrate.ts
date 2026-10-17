@@ -10,7 +10,18 @@ import { logger } from "../utils/logger";
  * - documented: files live in src/database/migrations
  */
 export async function runMigrations(): Promise<void> {
-  const migrationsDir = path.join(__dirname, "migrations");
+  // Saat dijalankan lewat `tsx src/index.ts` (dev/Docker) SQL ada di
+  // src/database/migrations; setelah `tsc` (deploy tanpa tsx) __dirname berada
+  // di dist/database dan file .sql tidak ikut terkompilasi — cari kandidat ini.
+  const candidates = [
+    path.join(__dirname, "migrations"),
+    path.join(__dirname, "..", "..", "src", "database", "migrations"),
+    path.join(process.cwd(), "src", "database", "migrations"),
+  ];
+  const migrationsDir = candidates.find((dir) => fs.existsSync(dir));
+  if (!migrationsDir) {
+    throw new Error(`Folder migrasi tidak ditemukan (dicari: ${candidates.join(", ")})`);
+  }
   const files = fs
     .readdirSync(migrationsDir)
     .filter((file) => file.endsWith(".sql"))
