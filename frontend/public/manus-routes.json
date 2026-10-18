@@ -2,6 +2,7 @@
   "routes": [
     { "path": "/", "title": "Beranda" },
     { "path": "/explore", "title": "Jelajah Anime" },
+    { "path": "/search", "title": "Cari Anime dan Film" },
     { "path": "/anime/:id", "title": "Detail Anime" },
     { "path": "/film", "title": "Film & Series" },
     { "path": "/film/:id", "title": "Detail Film atau Series" },

@@ -7,7 +7,9 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { Avatar } from "@/components/ui/Avatar";
 import { Spinner } from "@/components/ui/Spinner";
 import { apiGet } from "@/lib/api";
-import type { AnimeCard } from "@/lib/types";
+import type { AnimeCard, FilmCard } from "@/lib/types";
+
+type SearchItem = (AnimeCard | FilmCard) & { contentType: "anime" | "film" };
 
 const NAV_LINKS = [
   { href: "/", label: "Beranda" },
@@ -32,8 +34,9 @@ export function Navbar() {
   const { user, loading, logout } = useAuth();
 
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<AnimeCard[]>([]);
+  const [results, setResults] = useState<SearchItem[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [liveCount, setLiveCount] = useState<number | null>(null);
 
@@ -68,8 +71,19 @@ export function Navbar() {
     setSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const items = await apiGet<AnimeCard[]>(`/api/anime/search?q=${encodeURIComponent(trimmed)}`);
-        setResults(items.slice(0, 6));
+        const encoded = encodeURIComponent(trimmed);
+        const [animeResult, filmResult] = await Promise.allSettled([
+          apiGet<AnimeCard[]>(`/api/anime/search?q=${encoded}`),
+          apiGet<FilmCard[]>(`/api/film/search?q=${encoded}`),
+        ]);
+        const merged: SearchItem[] = [];
+        if (animeResult.status === "fulfilled") {
+          merged.push(...animeResult.value.map((item) => ({ ...item, contentType: "anime" as const })));
+        }
+        if (filmResult.status === "fulfilled") {
+          merged.push(...filmResult.value.map((item) => ({ ...item, contentType: "film" as const })));
+        }
+        setResults(merged.slice(0, 8));
       } catch {
         setResults([]);
       } finally {
@@ -95,13 +109,15 @@ export function Navbar() {
   useEffect(() => {
     setMenuOpen(false);
     setResults([]);
+    setSearchOpen(false);
   }, [pathname]);
 
   const submitSearch = () => {
     const trimmed = query.trim();
     if (!trimmed) return;
     setResults([]);
-    router.push(`/explore?q=${encodeURIComponent(trimmed)}`);
+    setSearchOpen(false);
+    router.push(`/search?q=${encodeURIComponent(trimmed)}`);
   };
 
   return (
@@ -137,7 +153,23 @@ export function Navbar() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <div ref={searchRef} className="relative hidden w-[min(38vw,340px)] lg:block">
+          <button
+            type="button"
+            onClick={() => setSearchOpen((open) => !open)}
+            className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-fog-300 transition-colors hover:border-accent-500/40 hover:text-accent-300 lg:hidden"
+            aria-label="Buka pencarian anime dan film"
+            aria-expanded={searchOpen}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+              <path d="m20 20-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </button>
+
+          <div
+            ref={searchRef}
+            className={`${searchOpen ? "block" : "hidden"} absolute left-3 right-3 top-full mt-2 lg:static lg:mt-0 lg:block lg:w-[min(38vw,340px)]`}
+          >
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -145,8 +177,8 @@ export function Navbar() {
                 if (event.key === "Enter") submitSearch();
                 if (event.key === "Escape") setResults([]);
               }}
-              placeholder="Cari anime…"
-              aria-label="Cari anime"
+              placeholder="Cari anime atau film…"
+              aria-label="Cari anime atau film"
               className="input !py-2.5 pl-9 text-sm"
             />
             <svg
@@ -170,9 +202,12 @@ export function Navbar() {
               <div className="panel absolute left-0 right-0 top-full mt-2 overflow-hidden rounded-2xl p-2 shadow-[0_30px_60px_-30px_rgba(0,0,0,0.95)]">
                 {results.map((item) => (
                   <Link
-                    key={item.id}
-                    href={`/anime/${item.id}`}
-                    onClick={() => setResults([])}
+                    key={`${item.contentType}-${item.id}`}
+                    href={item.contentType === "film" ? `/film/${item.id}` : `/anime/${item.id}`}
+                    onClick={() => {
+                      setResults([]);
+                      setSearchOpen(false);
+                    }}
                     className="flex items-center gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-white/[0.05]"
                   >
                     <span className="poster-frame h-12 w-9 shrink-0 rounded-lg">
@@ -184,7 +219,9 @@ export function Navbar() {
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium text-fog-100">{item.title}</span>
                       <span className="mt-0.5 block font-mono text-[10px] uppercase tracking-wider text-fog-600">
-                        {[item.kind, item.year].filter(Boolean).join(" · ") || "Anime"}
+                        {[item.contentType === "film" ? (item.kind === "series" ? "Series" : "Film") : "Anime", item.year]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </span>
                     </span>
                   </Link>
@@ -194,7 +231,7 @@ export function Navbar() {
                   onClick={submitSearch}
                   className="mt-1 w-full rounded-xl px-2.5 py-2 text-left text-xs font-semibold text-accent-400 transition-colors hover:bg-white/[0.05]"
                 >
-                  Lihat semua hasil untuk “{query.trim()}”
+                  Lihat semua anime &amp; film untuk “{query.trim()}”
                 </button>
               </div>
             ) : null}
