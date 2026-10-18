@@ -75,63 +75,6 @@ cd /opt/nobar-king-akbar-anime
 > Tanpa GitHub? Salin folder proyek (tanpa `node_modules`, `.next`, `.env`) ke server,
 > mis. dengan `scp -r nobar-king-akbar-anime user@SERVER:/opt/`.
 
-### 3b. Pterodactyl / hosting container tanpa Docker atau root
-
-Kalau panel hanya memberi satu container Node.js dan tidak mengizinkan Docker,
-gunakan runtime satu-container yang ada di `deploy/panel/`. Runtime ini menjalankan
-PostgreSQL embedded, API anime, resolver, backend, Next.js, dan gateway dalam satu
-proses induk. Database dan log disimpan di `deploy/panel/data/`, jadi tetap ada
-setelah restart container selama folder container tidak dihapus.
-
-Salin seluruh repository ke server panel, lalu buat konfigurasi:
-
-```bash
-cd /home/container/nobar-king-akbar-anime
-cp deploy/panel/.env.panel.example deploy/panel/.env.panel
-nano deploy/panel/.env.panel
-```
-
-Minimal ganti `PANEL_PG_PASSWORD`, `STREAM_PROXY_SECRET`, dan `RESOLVER_API_KEY`.
-Pertahankan `CONTENT_SOURCE=oploverz` untuk IP panel yang memblokir Cloudflare
-otakudesu. Isi `GATEWAY_PORT` dengan allocation port server Pterodactyl, dan
-`PUBLIC_URL` dengan URL/domain yang benar bila sudah ada.
-
-Startup command Pterodactyl:
-
-```bash
-node start-panel.js
-```
-
-Atau langsung:
-
-```bash
-node deploy/panel/start.mjs
-```
-
-Startup pertama memasang dependensi dan build frontend secara otomatis, sehingga
-bisa memakan beberapa menit dan membutuhkan ruang disk serta RAM tambahan. Setelah
-itu layanan otomatis dijalankan ulang bila salah satu child process mati. Health
-check container:
-
-```bash
-curl http://127.0.0.1:${GATEWAY_PORT:-3000}/healthz
-curl http://127.0.0.1:${GATEWAY_PORT:-3000}/api/health
-```
-
-Jika panel hanya memiliki 1–2 GB RAM, pertahankan `BROWSER_IDLE_MS` dan
-`RESOLVER_BROWSER_IDLE_MS` 120000 atau lebih. Jangan membuka port internal 3001,
-4000, 4100, 4200, atau 5433 ke publik; cukup allocation gateway. Log ada di
-`deploy/panel/data/logs/`. Jalur ini sudah diuji end-to-end: halaman `/`, `/film`,
-watch film, API health, TMDb film rows, Socket.IO polling, pendaftaran akun,
-pembuatan room film, dan tiga sumber iframe film membalas normal. Resolver anime
-tetap bergantung pada ketersediaan episode/provider sumber; bila provider gagal,
-situs menampilkan error jujur dan tidak mengarang URL.
-
-Catatan penting: saya tidak bisa menekan tombol deployment di panel Pterodactyl
-secara otomatis karena login panel dilindungi Cloudflare Turnstile dari lingkungan
-ini. Namun file startup di atas sudah disiapkan agar bisa ditempel/diunggah ke
-server panel dan dijalankan dari Startup command.
-
 ## 4. Konfigurasi rahasia
 
 ```bash

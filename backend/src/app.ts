@@ -27,6 +27,7 @@ export function createApp(): express.Express {
   app.use(
     helmet({
       contentSecurityPolicy: false,
+      frameguard: false,
       crossOriginEmbedderPolicy: false,
       crossOriginResourcePolicy: { policy: "cross-origin" },
     })

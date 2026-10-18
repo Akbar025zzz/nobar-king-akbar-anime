@@ -19,6 +19,20 @@ function readInt(name: string, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function readBool(name: string, fallback: boolean): boolean {
+  const value = process.env[name];
+  if (value === undefined || value.trim() === "") return fallback;
+  return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+}
+
+function readSameSite(
+  name: string,
+  fallback: "lax" | "strict" | "none"
+): "lax" | "strict" | "none" {
+  const value = process.env[name]?.trim().toLowerCase();
+  return value === "strict" || value === "none" || value === "lax" ? value : fallback;
+}
+
 export const env = {
   nodeEnv: readString("NODE_ENV", "development"),
   port: readInt("PORT", 4000),
@@ -37,6 +51,8 @@ export const env = {
   session: {
     cookieName: readString("SESSION_COOKIE_NAME", "nka_session"),
     ttlDays: readInt("SESSION_TTL_DAYS", 30),
+    secure: readBool("SESSION_COOKIE_SECURE", false),
+    sameSite: readSameSite("SESSION_COOKIE_SAMESITE", "lax"),
   },
 
   // Content source: self-hosted wajik-anime-api (sub-Indo scrapers).

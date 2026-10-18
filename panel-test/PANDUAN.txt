@@ -40,5 +40,5 @@ PENTING
    dihentikan sistem karena kehabisan memori (OOM). Kirimkan pesannya bila terjadi.
  * Selama uji, aplikasi lama (bot Discord) berhenti karena satu server hanya
    menjalankan satu perintah startup.
- * SETELAH SELESAI: kembalikan STARTUP COMMAND ke   node start.js   lalu Restart
+ * SETELAH SELESAI: kembalikan STARTUP COMMAND ke   node start.cjs   lalu Restart
    supaya bot Discord-mu hidup lagi.

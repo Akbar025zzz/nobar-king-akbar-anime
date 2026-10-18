@@ -1,0 +1,17 @@
+{
+  "routes": [
+    { "path": "/", "title": "Beranda" },
+    { "path": "/explore", "title": "Jelajah Anime" },
+    { "path": "/anime/:id", "title": "Detail Anime" },
+    { "path": "/film", "title": "Film & Series" },
+    { "path": "/film/:id", "title": "Detail Film atau Series" },
+    { "path": "/watch/:id/:episodeId", "title": "Tonton" },
+    { "path": "/nobar", "title": "Room Nobar" },
+    { "path": "/nobar/create", "title": "Buat Room Nobar" },
+    { "path": "/nobar/room/:roomId", "title": "Room Nobar" },
+    { "path": "/login", "title": "Masuk" },
+    { "path": "/register", "title": "Daftar" },
+    { "path": "/profile", "title": "Profil" },
+    { "path": "/rooms", "title": "Room Saya" }
+  ]
+}

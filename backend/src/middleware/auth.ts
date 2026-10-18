@@ -4,19 +4,11 @@ import { errors } from "../domain/errors";
 import { authenticate } from "../services/auth.service";
 import { logger } from "../utils/logger";
 
-function isSecureRequest(req: Request): boolean {
-  const forwarded = req.headers["x-forwarded-proto"];
-  if (typeof forwarded === "string" && forwarded.split(",")[0]?.trim() === "https") {
-    return true;
-  }
-  return req.secure;
-}
-
 export function setSessionCookie(req: Request, res: Response, token: string): void {
   res.cookie(env.session.cookieName, token, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: isSecureRequest(req),
+    sameSite: env.session.sameSite,
+    secure: env.session.secure,
     path: "/",
     maxAge: env.session.ttlDays * 24 * 60 * 60 * 1000,
   });
@@ -25,8 +17,8 @@ export function setSessionCookie(req: Request, res: Response, token: string): vo
 export function clearSessionCookie(req: Request, res: Response): void {
   res.clearCookie(env.session.cookieName, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: isSecureRequest(req),
+    sameSite: env.session.sameSite,
+    secure: env.session.secure,
     path: "/",
   });
 }

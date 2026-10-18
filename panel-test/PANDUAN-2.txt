@@ -25,7 +25,7 @@ LANGKAH
 
  4. Kirim isi console (atau berkas panel-test-result.txt di tab Files)
 
- 5. Kembalikan STARTUP COMMAND ke:  node start.js   lalu Restart
+ 5. Kembalikan STARTUP COMMAND ke:  node start.cjs   lalu Restart
 
 
 CARA BACA HASIL
